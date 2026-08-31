@@ -117,20 +117,24 @@ These are correctness and security requirements. Violating one is a bug even if 
     `INSERT` and `SELECT` on it, and no `UPDATE` or `DELETE`.
 15. Deleting a bank/loan type/status must not silently orphan rows — use explicit
     `ON DELETE CASCADE` or `RESTRICT`, chosen deliberately per foreign key.
+16. `ON DELETE RESTRICT` protects only against hard SQL `DELETE`. Soft delete is an
+    `UPDATE` and triggers no FK action — so an admin soft-deleting a bank, loan type,
+    or status that still has live `descriptions` rows must be blocked by an explicit
+    application-level check in the service layer. This guard is owed as of Stage 3.
 
 ### Caching
 
-16. The full Bank/LoanType/Status/Description tree is cached in Redis and served from
+17. The full Bank/LoanType/Status/Description tree is cached in Redis and served from
     cache on user reads. **Every admin write invalidates the cache in the same request.**
     A stale dropdown is a correctness bug, not a performance detail.
-17. If Redis is unavailable, reads fall through to Postgres and log a warning.
+18. If Redis is unavailable, reads fall through to Postgres and log a warning.
     Redis being down must never cause a 500.
 
 ### General
 
-18. All request input is validated with a Zod schema from `packages/shared` before use.
-19. Credit, query, and activity-log writes must not block the description-lookup response path.
-20. Secrets come from `process.env`, parsed and validated at boot by `config/env.ts`.
+19. All request input is validated with a Zod schema from `packages/shared` before use.
+20. Credit, query, and activity-log writes must not block the description-lookup response path.
+21. Secrets come from `process.env`, parsed and validated at boot by `config/env.ts`.
     The process must **fail to start** if a required secret is missing. Never commit `.env`.
 
 ---
