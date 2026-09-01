@@ -126,20 +126,25 @@ These are correctness and security requirements. Violating one is a bug even if 
     `UPDATE` and triggers no FK action — so an admin soft-deleting a bank, loan type,
     or status that still has live `descriptions` rows must be blocked by an explicit
     application-level check in the service layer. This guard is owed as of Stage 3.
+18. Any code path that takes a `SELECT ... FOR UPDATE` row lock must set
+    `SET LOCAL lock_timeout = '3s'` as the first statement in that transaction, and map
+    the resulting Postgres lock-timeout error to a `409 RESOURCE_BUSY` response. A stuck
+    lock holder must time out and free its pool connection, never block a request or hold
+    a connection indefinitely.
 
 ### Caching
 
-18. The full Bank/LoanType/Status/Description tree is cached in Redis and served from
+19. The full Bank/LoanType/Status/Description tree is cached in Redis and served from
     cache on user reads. **Every admin write invalidates the cache in the same request.**
     A stale dropdown is a correctness bug, not a performance detail.
-19. If Redis is unavailable, reads fall through to Postgres and log a warning.
+20. If Redis is unavailable, reads fall through to Postgres and log a warning.
     Redis being down must never cause a 500.
 
 ### General
 
-20. All request input is validated with a Zod schema from `packages/shared` before use.
-21. Credit, query, and activity-log writes must not block the description-lookup response path.
-22. Secrets come from `process.env`, parsed and validated at boot by `config/env.ts`.
+21. All request input is validated with a Zod schema from `packages/shared` before use.
+22. Credit, query, and activity-log writes must not block the description-lookup response path.
+23. Secrets come from `process.env`, parsed and validated at boot by `config/env.ts`.
     The process must **fail to start** if a required secret is missing. Never commit `.env`.
 
 ---

@@ -59,3 +59,19 @@ export class TooManyRequestsError extends AppError {
     this.retryAfterSeconds = retryAfterSeconds;
   }
 }
+
+export class HasDependentDescriptionsError extends AppError {
+  readonly statusCode = 409;
+  readonly code = "HAS_DEPENDENT_DESCRIPTIONS";
+}
+
+export class AlreadyAttachedError extends AppError {
+  readonly statusCode = 409;
+  readonly code = "ALREADY_ATTACHED";
+}
+
+/** A `SELECT ... FOR UPDATE` hit `lock_timeout` — see CLAUDE.md invariant #18. */
+export class ResourceBusyError extends AppError {
+  readonly statusCode = 409;
+  readonly code = "RESOURCE_BUSY";
+}

@@ -9,6 +9,13 @@ import { logger } from "./lib/logger.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import { requestId } from "./middleware/requestId.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
+import { bankLoanTypesRouter } from "./modules/bankLoanTypes/bankLoanTypes.routes.js";
+import { banksRouter } from "./modules/banks/banks.routes.js";
+import { descriptionsRouter } from "./modules/descriptions/descriptions.routes.js";
+import { exportRouter } from "./modules/export/export.routes.js";
+import { loanTypesRouter } from "./modules/loanTypes/loanTypes.routes.js";
+import { statusesRouter } from "./modules/statuses/statuses.routes.js";
+import { usersRouter } from "./modules/users/users.routes.js";
 import { healthRouter } from "./routes/health.js";
 
 export function createApp(): Express {
@@ -58,6 +65,13 @@ export function createApp(): Express {
 
   app.use(healthRouter);
   app.use("/api/auth", authRouter);
+  app.use("/api/admin/banks", banksRouter);
+  app.use("/api/admin/banks", bankLoanTypesRouter);
+  app.use("/api/admin/loan-types", loanTypesRouter);
+  app.use("/api/admin/statuses", statusesRouter);
+  app.use("/api/admin/descriptions", descriptionsRouter);
+  app.use("/api/admin/users", usersRouter);
+  app.use("/api/admin", exportRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

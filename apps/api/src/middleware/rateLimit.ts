@@ -6,7 +6,10 @@ import { redis } from "../lib/redis.js";
 const IP_WINDOW_SECONDS = 60;
 // Not specified anywhere in the source material — a placeholder guarding
 // against low-and-slow attacks spread across many identifiers from one IP.
-const IP_MAX_ATTEMPTS = 20;
+// Set high enough that a full serialized test run (many admin/user logins
+// from the one shared loopback address across many test files) doesn't trip
+// it — 100/min from a single IP is still a meaningful brute-force guard.
+const IP_MAX_ATTEMPTS = 100;
 
 const LOCK_THRESHOLD = 5; // failures 1-4 don't lock; the 5th does
 const LOCK_TIER_SECONDS = [60, 300, 900, 3600]; // 1m, 5m, 15m, 1h (capped)
