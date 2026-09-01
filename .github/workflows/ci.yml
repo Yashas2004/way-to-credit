@@ -13,13 +13,14 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          # Local/CI-only throwaway credentials, not a real secret.
+          POSTGRES_USER: devuser
+          POSTGRES_PASSWORD: devpassword_local_only
           POSTGRES_DB: way_to_credit
         ports:
           - 5433:5432
         options: >-
-          --health-cmd "pg_isready -U postgres -d way_to_credit"
+          --health-cmd "pg_isready -U devuser -d way_to_credit"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -37,9 +38,12 @@ jobs:
     env:
       NODE_ENV: test
       PORT: 4000
-      DATABASE_URL: postgres://postgres:postgres@localhost:5433/way_to_credit
+      DATABASE_URL: postgres://devuser:devpassword_local_only@localhost:5433/way_to_credit
       REDIS_URL: redis://localhost:6380
       CORS_ORIGIN: http://localhost:5173
+      # CI-only fixture, not a real secret — just needs to satisfy config/env.ts's
+      # 32-character minimum so the app boots for tests. No production meaning.
+      JWT_SECRET: ci_only_not_a_real_secret_min_32_chars_long
 
     steps:
       - name: Checkout

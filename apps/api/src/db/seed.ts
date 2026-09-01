@@ -14,7 +14,9 @@ import {
 } from "./schema/index.js";
 import type { DbOrTx } from "./types.js";
 
-const DEV_PASSWORD = "DevPass@123";
+// Development-only seed password. Never use this — or anything like it —
+// in a deployed environment.
+const DEV_PASSWORD = "LocalDevOnly_ChangeMe";
 
 const BANK_NAMES = ["HDFC Bank", "ICICI Bank", "State Bank of India", "Axis Bank"] as const;
 

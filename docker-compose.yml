@@ -3,15 +3,16 @@ services:
     image: postgres:16
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      # Local-dev-only throwaway credentials, not a real secret.
+      POSTGRES_USER: devuser
+      POSTGRES_PASSWORD: devpassword_local_only
       POSTGRES_DB: way_to_credit
     ports:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d way_to_credit"]
+      test: ["CMD-SHELL", "pg_isready -U devuser -d way_to_credit"]
       interval: 5s
       timeout: 5s
       retries: 10
