@@ -8,6 +8,7 @@ import { env } from "./config/env.js";
 import { logger } from "./lib/logger.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import { requestId } from "./middleware/requestId.js";
+import { authRouter } from "./modules/auth/auth.routes.js";
 import { healthRouter } from "./routes/health.js";
 
 export function createApp(): Express {
@@ -56,6 +57,7 @@ export function createApp(): Express {
   app.use(cookieParser());
 
   app.use(healthRouter);
+  app.use("/api/auth", authRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

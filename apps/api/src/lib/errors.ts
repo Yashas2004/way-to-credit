@@ -33,3 +33,29 @@ export class ConflictError extends AppError {
   readonly statusCode = 409;
   readonly code = "CONFLICT";
 }
+
+export class InvalidCredentialsError extends AppError {
+  readonly statusCode = 401;
+  readonly code = "INVALID_CREDENTIALS";
+}
+
+export class AccountInactiveError extends AppError {
+  readonly statusCode = 401;
+  readonly code = "ACCOUNT_INACTIVE";
+}
+
+export class OutsideAccessWindowError extends AppError {
+  readonly statusCode = 403;
+  readonly code = "OUTSIDE_ACCESS_WINDOW";
+}
+
+export class TooManyRequestsError extends AppError {
+  readonly statusCode = 429;
+  readonly code = "TOO_MANY_REQUESTS";
+  readonly retryAfterSeconds: number;
+
+  constructor(message: string, retryAfterSeconds: number) {
+    super(message);
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}

@@ -105,36 +105,41 @@ These are correctness and security requirements. Violating one is a bug even if 
    backed by Redis (not in-process memory — we run multiple instances).
 10. OTPs are 6 digits, single-use, expire in 5 minutes, and are stored **hashed** in Redis.
     Max 3 sends per number per hour.
+11. The frontend and API must be served from the **same registrable domain** in production
+    (e.g. `app.example.com` and `api.example.com`) so `SameSite=Lax` cookies are sent.
+    Deploying them cross-site — including to two different `*.vercel.app` / `*.onrender.com`
+    subdomains, which are on the Public Suffix List — will silently break authentication,
+    and local development will not catch it because the Vite dev proxy makes both same-origin.
 
 ### Data integrity
 
-11. Approving a query must be **idempotent**. The credit award runs inside a single
+12. Approving a query must be **idempotent**. The credit award runs inside a single
     transaction with a guarded update (`WHERE status = 'pending'`), and does nothing if
     zero rows were affected. Approving twice must never grant two points.
-12. Milestone unlocks are computed inside that same transaction.
-13. Descriptions default to the literal string `"NA"` when not yet filled in.
-14. The audit log table is **append-only**. The application's database role has
+13. Milestone unlocks are computed inside that same transaction.
+14. Descriptions default to the literal string `"NA"` when not yet filled in.
+15. The audit log table is **append-only**. The application's database role has
     `INSERT` and `SELECT` on it, and no `UPDATE` or `DELETE`.
-15. Deleting a bank/loan type/status must not silently orphan rows — use explicit
+16. Deleting a bank/loan type/status must not silently orphan rows — use explicit
     `ON DELETE CASCADE` or `RESTRICT`, chosen deliberately per foreign key.
-16. `ON DELETE RESTRICT` protects only against hard SQL `DELETE`. Soft delete is an
+17. `ON DELETE RESTRICT` protects only against hard SQL `DELETE`. Soft delete is an
     `UPDATE` and triggers no FK action — so an admin soft-deleting a bank, loan type,
     or status that still has live `descriptions` rows must be blocked by an explicit
     application-level check in the service layer. This guard is owed as of Stage 3.
 
 ### Caching
 
-17. The full Bank/LoanType/Status/Description tree is cached in Redis and served from
+18. The full Bank/LoanType/Status/Description tree is cached in Redis and served from
     cache on user reads. **Every admin write invalidates the cache in the same request.**
     A stale dropdown is a correctness bug, not a performance detail.
-18. If Redis is unavailable, reads fall through to Postgres and log a warning.
+19. If Redis is unavailable, reads fall through to Postgres and log a warning.
     Redis being down must never cause a 500.
 
 ### General
 
-19. All request input is validated with a Zod schema from `packages/shared` before use.
-20. Credit, query, and activity-log writes must not block the description-lookup response path.
-21. Secrets come from `process.env`, parsed and validated at boot by `config/env.ts`.
+20. All request input is validated with a Zod schema from `packages/shared` before use.
+21. Credit, query, and activity-log writes must not block the description-lookup response path.
+22. Secrets come from `process.env`, parsed and validated at boot by `config/env.ts`.
     The process must **fail to start** if a required secret is missing. Never commit `.env`.
 
 ---

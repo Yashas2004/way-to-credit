@@ -1,7 +1,7 @@
 import { pathToFileURL } from "node:url";
-import { hash } from "@node-rs/argon2";
 import { sql } from "drizzle-orm";
 import { env } from "../config/env.js";
+import { hashPassword } from "../lib/password.js";
 import {
   admins,
   bankLoanTypes,
@@ -330,7 +330,7 @@ async function upsertMilestones(db: DbOrTx) {
 }
 
 export async function seed(db: DbOrTx): Promise<void> {
-  const passwordHash = await hash(DEV_PASSWORD);
+  const passwordHash = await hashPassword(DEV_PASSWORD);
 
   const admin = await upsertAdmin(db, passwordHash);
   const seededUsers = await upsertUsers(db, admin.id, passwordHash);

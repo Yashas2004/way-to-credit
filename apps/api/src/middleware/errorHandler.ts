@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import { AppError } from "../lib/errors.js";
+import { AppError, TooManyRequestsError } from "../lib/errors.js";
 
 export function notFoundHandler(req: Request, res: Response): void {
   res.status(404).json({
@@ -13,6 +13,18 @@ export function notFoundHandler(req: Request, res: Response): void {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Express requires 4 args to recognize an error handler
 export function errorHandler(err: unknown, req: Request, res: Response, next: NextFunction): void {
   if (err instanceof AppError) {
+    if (err instanceof TooManyRequestsError) {
+      res.setHeader("Retry-After", String(err.retryAfterSeconds));
+      res.status(err.statusCode).json({
+        error: {
+          code: err.code,
+          message: err.message,
+          retryAfterSeconds: err.retryAfterSeconds,
+        },
+      });
+      return;
+    }
+
     res.status(err.statusCode).json({
       error: {
         code: err.code,
