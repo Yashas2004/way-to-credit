@@ -1,3 +1,25 @@
+/* IBM Plex Sans 400/500/600 and IBM Plex Serif 400/500/600, via Fontsource —
+   bundled at build time, no Google Fonts CDN dependency. */
+@import "@fontsource/ibm-plex-sans/400.css";
+@import "@fontsource/ibm-plex-sans/500.css";
+@import "@fontsource/ibm-plex-sans/600.css";
+@import "@fontsource/ibm-plex-serif/400.css";
+@import "@fontsource/ibm-plex-serif/500.css";
+@import "@fontsource/ibm-plex-serif/600.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-paper font-sans text-body text-ink;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* One visible-focus treatment, used everywhere via focus-visible — never
+     suppressed. Brass ring reads clearly against both Paper and Maroon. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-brass ring-offset-2 ring-offset-paper;
+  }
+}
