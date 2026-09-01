@@ -11,16 +11,10 @@ import {
   loginAs,
   TEST_PASSWORD,
   type TestAdmin,
+  WITHIN_WINDOW_INSTANT,
 } from "../../lib/testAuth.js";
 
 const app = createApp();
-
-// Some tests here log in as a role="user" account (to prove deactivation
-// actually revokes it), which is subject to the Mon-Sat 09:00-18:00 IST
-// window — fixed to a safely-inside-the-window instant so this file doesn't
-// flake depending on real wall-clock time when it happens to run. Only
-// `Date` is faked; timers stay real.
-const WITHIN_WINDOW_INSTANT = new Date(Date.UTC(2024, 0, 8, 6, 30, 0)); // Mon 2024-01-08, 12:00 IST
 
 describe("users admin API", () => {
   let admin: TestAdmin;

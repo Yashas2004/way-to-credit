@@ -7,14 +7,10 @@ import {
   deleteTestAdmin,
   deleteTestUser,
   loginAs,
+  WITHIN_WINDOW_INSTANT,
 } from "../lib/testAuth.js";
 
 const app = createApp();
-
-// Logging in as the test user is subject to the Mon-Sat 09:00-18:00 IST
-// window — fixed to a safely-inside instant so this file doesn't flake
-// depending on real wall-clock time when it happens to run.
-const WITHIN_WINDOW_INSTANT = new Date(Date.UTC(2024, 0, 8, 6, 30, 0)); // Mon 2024-01-08, 12:00 IST
 
 // Any syntactically valid UUID works — requireRole rejects before the route
 // handler ever tries to resolve it.

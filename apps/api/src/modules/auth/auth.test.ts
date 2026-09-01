@@ -9,6 +9,7 @@ import { activityLog, admins, sessions, users } from "../../db/schema/index.js";
 import { readErrorBody } from "../../lib/errorEnvelope.js";
 import { hashPassword } from "../../lib/password.js";
 import { hashRefreshToken } from "../../lib/refreshToken.js";
+import { WITHIN_WINDOW_INSTANT } from "../../lib/testAuth.js";
 import { errorHandler } from "../../middleware/errorHandler.js";
 import { requireAuth } from "../../middleware/requireAuth.js";
 import { requireRole } from "../../middleware/requireRole.js";
@@ -18,12 +19,6 @@ const app = createApp();
 
 const PASSWORD = "Correct-Horse-Battery-Staple-1";
 
-// Fixed at a Monday-midday IST instant so every HTTP-level test in this file
-// runs deterministically inside the user access window, regardless of real
-// wall-clock time when the suite happens to execute (CI runs at arbitrary
-// UTC times). Only the `Date` global is faked — timers stay real, so the
-// HTTP server, Postgres pool, and Redis client are unaffected.
-const WITHIN_WINDOW_INSTANT = new Date(Date.UTC(2024, 0, 8, 6, 30, 0)); // Mon 2024-01-08, 12:00 IST
 const OUTSIDE_WINDOW_INSTANT = new Date(Date.UTC(2024, 0, 7, 6, 30, 0)); // Sun 2024-01-07, noon IST
 
 function setCookieHeaders(res: request.Response): string[] {

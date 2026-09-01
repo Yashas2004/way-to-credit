@@ -142,3 +142,58 @@ export async function clearLoginAttempts(identifier: string): Promise<void> {
     logger.warn({ err: error, identifier }, "Failed to clear login attempt counters");
   }
 }
+
+const QUERY_RATE_WINDOW_SECONDS = 60 * 60;
+const QUERY_RATE_MAX_PER_WINDOW = 10;
+
+function queryRateKey(userId: string): string {
+  return `query:rate:${userId}`;
+}
+
+/**
+ * 10 queries per user per hour, window anchored at each user's first
+ * request in it (not wall-clock-aligned) — same INCR+EXPIRE-on-first-hit
+ * shape as the login IP counter above. Runs before body validation, so a
+ * malformed/invalid attempt still consumes budget, matching how
+ * `loginRateLimit` runs first in `auth.routes.ts`. On Redis error: fail
+ * open with a warning log and no secondary in-process fallback — unlike
+ * login, this route is already behind `requireAuth`+`timeWindow`+
+ * `requireRole`, so the unauthenticated brute-force risk that justifies
+ * login's extra fallback layer doesn't apply here.
+ */
+export async function queryRateLimit(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): Promise<void> {
+  const userId = req.auth?.sub;
+  if (!userId) {
+    next();
+    return;
+  }
+
+  try {
+    const key = queryRateKey(userId);
+    const count = await redis.incr(key);
+    if (count === 1) {
+      await redis.expire(key, QUERY_RATE_WINDOW_SECONDS);
+    }
+    if (count > QUERY_RATE_MAX_PER_WINDOW) {
+      const ttl = await redis.ttl(key);
+      next(
+        new TooManyRequestsError(
+          "Too many queries raised. Try again later.",
+          ttl > 0 ? ttl : QUERY_RATE_WINDOW_SECONDS,
+        ),
+      );
+      return;
+    }
+    next();
+  } catch (error) {
+    logger.warn(
+      { err: error, userId },
+      "Redis unreachable during query rate-limit check — failing open",
+    );
+    next();
+  }
+}

@@ -8,6 +8,17 @@ import { hashPassword } from "./password.js";
 
 export const TEST_PASSWORD = "Test-Password-123!";
 
+/**
+ * A fixed instant safely inside the Mon-Sat 09:00-18:00 IST access window
+ * (Mon 2024-01-08, 12:00 IST) — every test that hits a `timeWindow`-gated
+ * route with a user-role token needs `vi.useFakeTimers({toFake:["Date"]});
+ * vi.setSystemTime(WITHIN_WINDOW_INSTANT)` in `beforeAll`, or the test is
+ * flaky depending on when `pnpm test` actually runs in real wall-clock
+ * time. Centralized here as the one source of truth instead of each test
+ * file redeclaring the same literal.
+ */
+export const WITHIN_WINDOW_INSTANT = new Date(Date.UTC(2024, 0, 8, 6, 30, 0)); // Mon 2024-01-08, 12:00 IST
+
 export interface TestAdmin {
   id: string;
   adminId: string;
