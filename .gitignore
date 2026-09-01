@@ -26,3 +26,7 @@ pnpm-debug.log*
 .vscode/*
 !.vscode/extensions.json
 .idea/
+
+*.xlsx
+~$*
+cookies.txt
