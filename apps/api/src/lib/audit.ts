@@ -2,7 +2,16 @@ import { auditLog } from "../db/schema/index.js";
 import type { DbOrTx } from "../db/types.js";
 
 export type AuditAction =
-  "create" | "update" | "soft_delete" | "undelete" | "password_reset" | "attach" | "detach";
+  | "create"
+  | "update"
+  | "soft_delete"
+  | "undelete"
+  | "password_reset"
+  | "attach"
+  | "detach"
+  | "approve"
+  | "reject"
+  | "credit_adjustment";
 
 export interface AuditEntry {
   actorId: string;

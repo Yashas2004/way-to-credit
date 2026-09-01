@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+export * from "./activity.js";
 export * from "./auth.js";
 export * from "./bankLoanTypes.js";
 export * from "./banks.js";
@@ -8,6 +9,7 @@ export * from "./credits.js";
 export * from "./descriptions.js";
 export * from "./loanTypes.js";
 export * from "./lookup.js";
+export * from "./milestones.js";
 export * from "./queries.js";
 export * from "./statuses.js";
 export * from "./users.js";

@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, ne } from "drizzle-orm";
 import { activityLog, admins, sessions, users } from "../../db/schema/index.js";
 import type { DbOrTx } from "../../db/types.js";
 import type { Role } from "../../lib/jwt.js";
@@ -83,6 +83,40 @@ export async function revokeSessionFamily(db: DbOrTx, familyId: string): Promise
     .update(sessions)
     .set({ revokedAt: new Date() })
     .where(and(eq(sessions.familyId, familyId), isNull(sessions.revokedAt)));
+}
+
+/** Same guarded-update idiom as users.repo.ts's revokeAllActiveSessionsForUser, but for admins and unconditional (used by the OTP reset flow, which has no "current session" to spare). */
+export async function revokeAllActiveSessionsForAdmin(db: DbOrTx, adminId: string): Promise<void> {
+  await db
+    .update(sessions)
+    .set({ revokedAt: new Date() })
+    .where(and(eq(sessions.adminId, adminId), isNull(sessions.revokedAt)));
+}
+
+/** Same as above, but excludes one session — used by admin self password-change to keep the current session alive while killing every other one. */
+export async function revokeOtherActiveSessionsForAdmin(
+  db: DbOrTx,
+  adminId: string,
+  exceptSessionId: string,
+): Promise<void> {
+  await db
+    .update(sessions)
+    .set({ revokedAt: new Date() })
+    .where(
+      and(
+        eq(sessions.adminId, adminId),
+        isNull(sessions.revokedAt),
+        ne(sessions.id, exceptSessionId),
+      ),
+    );
+}
+
+export async function setAdminPasswordHash(
+  db: DbOrTx,
+  id: string,
+  passwordHash: string,
+): Promise<void> {
+  await db.update(admins).set({ passwordHash }).where(eq(admins.id, id));
 }
 
 export interface ActivityLogEntry {

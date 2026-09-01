@@ -10,6 +10,12 @@ const envSchema = z.object({
   REDIS_URL: z.string().min(1, "REDIS_URL is required"),
   CORS_ORIGIN: z.string().min(1, "CORS_ORIGIN is required"),
   JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters"),
+  // Valid unconditionally in every environment — "msg91" without a key is a
+  // runtime failure at provider-construction time (lib/sms/index.ts), not a
+  // boot-time Zod error, since console is what's actually live everywhere
+  // today (TRAI DLT registration isn't complete yet).
+  SMS_PROVIDER: z.enum(["console", "msg91"]).default("console"),
+  MSG91_AUTH_KEY: z.string().min(1).optional(),
 });
 
 const isProduction = process.env["NODE_ENV"] === "production";

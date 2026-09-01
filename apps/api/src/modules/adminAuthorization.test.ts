@@ -46,8 +46,26 @@ const ROUTES: { method: "get" | "post" | "patch" | "delete" | "put"; path: strin
   { method: "post", path: `/api/admin/users/${ID}/deactivate` },
   { method: "post", path: `/api/admin/users/${ID}/reactivate` },
   { method: "post", path: `/api/admin/users/${ID}/reset-password` },
+  { method: "post", path: `/api/admin/users/${ID}/credits` },
 
   { method: "get", path: "/api/admin/export" },
+
+  { method: "post", path: `/api/admin/queries/${ID}/approve` },
+  { method: "post", path: `/api/admin/queries/${ID}/reject` },
+  { method: "get", path: "/api/admin/queries" },
+  { method: "get", path: `/api/admin/queries/${ID}` },
+
+  { method: "post", path: "/api/admin/milestones" },
+  { method: "get", path: "/api/admin/milestones" },
+  { method: "patch", path: `/api/admin/milestones/${ID}` },
+  { method: "post", path: `/api/admin/milestones/${ID}/deactivate` },
+  { method: "post", path: `/api/admin/milestones/${ID}/reactivate` },
+
+  { method: "get", path: "/api/admin/activity" },
+  { method: "get", path: "/api/admin/sessions/active" },
+  { method: "get", path: "/api/admin/stats" },
+
+  { method: "post", path: "/api/admin/me/password" },
 ];
 
 describe("every admin route rejects a non-admin (user) token", () => {

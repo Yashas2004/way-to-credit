@@ -197,3 +197,157 @@ export async function queryRateLimit(
     next();
   }
 }
+
+const FORGOT_PASSWORD_IP_WINDOW_SECONDS = 60 * 60;
+const FORGOT_PASSWORD_IP_MAX = 5; // "5 per IP per hour"
+const FORGOT_PASSWORD_ADMIN_WINDOW_SECONDS = 60 * 60;
+const FORGOT_PASSWORD_ADMIN_MAX = 3; // CLAUDE.md invariant #10's "max 3 sends per number per hour" — keyed by adminId, 1:1 with mobileNumber
+
+// Same reasoning as loginRateLimit's fallback: this is a public,
+// unauthenticated endpoint, so Redis being down must not turn into "anyone
+// can send unlimited OTP SMS" — fail open with a hard per-instance IP cap,
+// a dedicated Map (not shared with loginRateLimit's) so each limiter's
+// blast radius and tuning stay independent.
+const FORGOT_PASSWORD_FALLBACK_MAX_PER_MINUTE = 5;
+const FORGOT_PASSWORD_FALLBACK_WINDOW_MS = 60_000;
+const FORGOT_PASSWORD_FALLBACK_RETRY_AFTER_SECONDS = 60;
+const forgotPasswordFallbackIpAttempts = new Map<string, { count: number; windowStart: number }>();
+
+function checkForgotPasswordFallbackLimit(ip: string): boolean {
+  const now = Date.now();
+  const existing = forgotPasswordFallbackIpAttempts.get(ip);
+  if (!existing || now - existing.windowStart > FORGOT_PASSWORD_FALLBACK_WINDOW_MS) {
+    forgotPasswordFallbackIpAttempts.set(ip, { count: 1, windowStart: now });
+    return true;
+  }
+  existing.count += 1;
+  return existing.count <= FORGOT_PASSWORD_FALLBACK_MAX_PER_MINUTE;
+}
+
+function forgotPasswordIpKey(ip: string): string {
+  return `forgot-password:ip:${ip}`;
+}
+function forgotPasswordAdminKey(adminId: string): string {
+  return `forgot-password:admin:${adminId}`;
+}
+
+function extractAdminId(req: Request): string | undefined {
+  const body: unknown = req.body;
+  if (body !== null && typeof body === "object" && "adminId" in body) {
+    const value = (body as Record<string, unknown>)["adminId"];
+    return typeof value === "string" ? value : undefined;
+  }
+  return undefined;
+}
+
+/**
+ * 5/IP/hour and 3/admin/hour (both windows anchored at first hit). The
+ * per-admin counter is keyed by the raw request-body string, existence-blind
+ * — it increments identically whether or not that string resolves to a real
+ * admin, so it introduces no differential response between a real and a
+ * fake adminId (forgot-password's "always 200" no-enumeration guarantee
+ * stays intact).
+ */
+export async function forgotPasswordRateLimit(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): Promise<void> {
+  const ip = req.ip ?? "unknown";
+  const adminId = extractAdminId(req);
+
+  try {
+    const ipCount = await redis.incr(forgotPasswordIpKey(ip));
+    if (ipCount === 1) {
+      await redis.expire(forgotPasswordIpKey(ip), FORGOT_PASSWORD_IP_WINDOW_SECONDS);
+    }
+    if (ipCount > FORGOT_PASSWORD_IP_MAX) {
+      next(
+        new TooManyRequestsError(
+          "Too many password reset requests from this address.",
+          FORGOT_PASSWORD_IP_WINDOW_SECONDS,
+        ),
+      );
+      return;
+    }
+
+    if (adminId) {
+      const adminCount = await redis.incr(forgotPasswordAdminKey(adminId));
+      if (adminCount === 1) {
+        await redis.expire(forgotPasswordAdminKey(adminId), FORGOT_PASSWORD_ADMIN_WINDOW_SECONDS);
+      }
+      if (adminCount > FORGOT_PASSWORD_ADMIN_MAX) {
+        next(
+          new TooManyRequestsError(
+            "Too many password reset requests. Please try again later.",
+            FORGOT_PASSWORD_ADMIN_WINDOW_SECONDS,
+          ),
+        );
+        return;
+      }
+    }
+
+    next();
+  } catch (error) {
+    logger.error(
+      { err: error, ip },
+      "Redis unreachable during forgot-password rate-limit check — failing open with an in-process per-IP cap",
+    );
+    if (!checkForgotPasswordFallbackLimit(ip)) {
+      next(
+        new TooManyRequestsError(
+          "Too many password reset requests. Try again shortly.",
+          FORGOT_PASSWORD_FALLBACK_RETRY_AFTER_SECONDS,
+        ),
+      );
+      return;
+    }
+    next();
+  }
+}
+
+const RESET_PASSWORD_IP_WINDOW_SECONDS = 60;
+const RESET_PASSWORD_IP_MAX = 20;
+
+function resetPasswordIpKey(ip: string): string {
+  return `reset-password:ip:${ip}`;
+}
+
+/**
+ * A lighter IP-only limiter for POST /api/auth/reset-password. Brute-forcing
+ * the OTP itself is already bounded by `lib/otp.ts`'s 5-attempts-per-OTP
+ * cap (forcing a fresh `forgot-password` call, itself capped at 3/hour);
+ * this just protects the endpoint itself from being hammered, matching
+ * "both routes are public and rate-limited." Fails open on Redis error —
+ * this route's real brute-force resistance comes from the OTP-attempt cap,
+ * not this counter, so a fallback layer isn't warranted here.
+ */
+export async function resetPasswordRateLimit(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): Promise<void> {
+  const ip = req.ip ?? "unknown";
+  try {
+    const count = await redis.incr(resetPasswordIpKey(ip));
+    if (count === 1) {
+      await redis.expire(resetPasswordIpKey(ip), RESET_PASSWORD_IP_WINDOW_SECONDS);
+    }
+    if (count > RESET_PASSWORD_IP_MAX) {
+      next(
+        new TooManyRequestsError(
+          "Too many password reset attempts from this address.",
+          RESET_PASSWORD_IP_WINDOW_SECONDS,
+        ),
+      );
+      return;
+    }
+    next();
+  } catch (error) {
+    logger.warn(
+      { err: error, ip },
+      "Redis unreachable during reset-password rate-limit check — failing open",
+    );
+    next();
+  }
+}

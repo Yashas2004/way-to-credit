@@ -1,4 +1,8 @@
-import { LoginRequestSchema } from "@way-to-credit/shared";
+import {
+  ForgotPasswordRequestSchema,
+  LoginRequestSchema,
+  ResetPasswordRequestSchema,
+} from "@way-to-credit/shared";
 import type { Request } from "express";
 import { Router } from "express";
 import {
@@ -8,7 +12,11 @@ import {
   setRefreshTokenCookie,
 } from "../../lib/cookies.js";
 import { UnauthorizedError, ValidationError } from "../../lib/errors.js";
-import { loginRateLimit } from "../../middleware/rateLimit.js";
+import {
+  forgotPasswordRateLimit,
+  loginRateLimit,
+  resetPasswordRateLimit,
+} from "../../middleware/rateLimit.js";
 import { requireAuth } from "../../middleware/requireAuth.js";
 import { timeWindow } from "../../middleware/timeWindow.js";
 import * as authService from "./auth.service.js";
@@ -83,6 +91,40 @@ authRouter.get("/me", requireAuth, timeWindow(), async (req, res, next) => {
 
     const identity = await authService.getIdentity(req.auth.sub, req.auth.role);
     res.status(200).json(identity);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Public, no requireAuth — this is how an admin identifies themselves
+// before they have a session. Always 200 regardless of whether adminId
+// exists; the service layer enforces the no-enumeration guarantee.
+authRouter.post("/forgot-password", forgotPasswordRateLimit, async (req, res, next) => {
+  try {
+    const parsed = ForgotPasswordRequestSchema.safeParse(req.body as unknown);
+    if (!parsed.success) {
+      throw new ValidationError("A valid adminId is required.");
+    }
+    await authService.forgotPassword(parsed.data.adminId);
+    res.status(200).json({ status: "ok" });
+  } catch (error) {
+    next(error);
+  }
+});
+
+authRouter.post("/reset-password", resetPasswordRateLimit, async (req, res, next) => {
+  try {
+    const parsed = ResetPasswordRequestSchema.safeParse(req.body as unknown);
+    if (!parsed.success) {
+      throw new ValidationError("A valid adminId, 6-digit otp, and newPassword are required.");
+    }
+    await authService.resetPassword(
+      parsed.data.adminId,
+      parsed.data.otp,
+      parsed.data.newPassword,
+      requestContext(req),
+    );
+    res.status(200).json({ status: "ok" });
   } catch (error) {
     next(error);
   }

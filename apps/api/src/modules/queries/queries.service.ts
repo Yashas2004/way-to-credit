@@ -1,11 +1,23 @@
-import type { ListQueriesResponse, QueryRow, RaiseQueryRequest } from "@way-to-credit/shared";
+import type {
+  AdminListQueriesQuery,
+  AdminListQueriesResponse,
+  AdminQueryRow,
+  ListQueriesResponse,
+  QueryRow,
+  RaiseQueryRequest,
+} from "@way-to-credit/shared";
 import { db } from "../../db/client.js";
-import { NotFoundError, ValidationError } from "../../lib/errors.js";
+import { recordAudit } from "../../lib/audit.js";
+import { AlreadyResolvedError, NotFoundError, ValidationError } from "../../lib/errors.js";
+import { runLockedTransaction } from "../../lib/lockedTransaction.js";
 import * as banksRepo from "../banks/banks.repo.js";
 import * as bankLoanTypesRepo from "../bankLoanTypes/bankLoanTypes.repo.js";
+import { applyCreditAdjustment } from "../credits/credits.service.js";
 import * as loanTypesRepo from "../loanTypes/loanTypes.repo.js";
 import * as statusesRepo from "../statuses/statuses.repo.js";
 import * as queriesRepo from "./queries.repo.js";
+
+const ALREADY_RESOLVED_MESSAGE = "This query has already been resolved.";
 
 const WITHDRAWN_MESSAGE = "This bank/loan-type/status combination is not available.";
 const INVALID_CURSOR_MESSAGE = "Invalid pagination cursor.";
@@ -119,5 +131,111 @@ function toQueryRow(row: queriesRepo.QueryRow): QueryRow {
     status: row.status,
     raisedAt: row.raisedAt.toISOString(),
     resolvedAt: row.resolvedAt ? row.resolvedAt.toISOString() : null,
+  };
+}
+
+/** Admin view — includes the raw `raisedBy`/`resolvedBy` ids the user-facing shape omits. */
+function toAdminQueryRow(row: queriesRepo.QueryRow): AdminQueryRow {
+  return {
+    id: row.id,
+    raisedBy: row.raisedBy,
+    bankId: row.bankId,
+    loanTypeId: row.loanTypeId,
+    statusId: row.statusId,
+    bankNameSnapshot: row.bankNameSnapshot,
+    loanTypeNameSnapshot: row.loanTypeNameSnapshot,
+    statusNameSnapshot: row.statusNameSnapshot,
+    message: row.message,
+    status: row.status,
+    raisedAt: row.raisedAt.toISOString(),
+    resolvedAt: row.resolvedAt ? row.resolvedAt.toISOString() : null,
+    resolvedBy: row.resolvedBy,
+  };
+}
+
+/**
+ * The central transaction — see the plan's pseudocode. A bare guarded
+ * `UPDATE ... WHERE status='pending'` is the entire concurrency guard for
+ * the query row (queries.repo.ts::updateQueryStatus); `applyCreditAdjustment`
+ * separately takes `FOR UPDATE` on the user row, which is why this needs
+ * `runLockedTransaction`'s `lock_timeout` protection.
+ */
+export async function approveQuery(actorId: string, queryId: string): Promise<AdminQueryRow> {
+  return runLockedTransaction(async (tx) => {
+    const updatedQuery = await queriesRepo.updateQueryStatus(tx, queryId, "approved", actorId);
+    if (!updatedQuery) {
+      throw new AlreadyResolvedError(ALREADY_RESOLVED_MESSAGE);
+    }
+
+    await applyCreditAdjustment(tx, updatedQuery.raisedBy, 1, "Query approved", queryId);
+
+    await recordAudit(tx, {
+      actorId,
+      actorType: "admin",
+      action: "approve",
+      entityType: "queries",
+      entityId: queryId,
+      before: { status: "pending" },
+      after: updatedQuery,
+    });
+
+    return toAdminQueryRow(updatedQuery);
+  });
+}
+
+/**
+ * Same guarded-UPDATE shape as approve, but no `FOR UPDATE` of its own —
+ * still wrapped in `runLockedTransaction` so its `lock_timeout` applies
+ * while this is the *waiting* side of a race against a concurrent approve
+ * on the same row (there's no other bailout for a transaction that's only
+ * waiting on someone else's lock, not holding one itself).
+ */
+export async function rejectQuery(actorId: string, queryId: string): Promise<AdminQueryRow> {
+  return runLockedTransaction(async (tx) => {
+    const updatedQuery = await queriesRepo.updateQueryStatus(tx, queryId, "rejected", actorId);
+    if (!updatedQuery) {
+      throw new AlreadyResolvedError(ALREADY_RESOLVED_MESSAGE);
+    }
+
+    await recordAudit(tx, {
+      actorId,
+      actorType: "admin",
+      action: "reject",
+      entityType: "queries",
+      entityId: queryId,
+      before: { status: "pending" },
+      after: updatedQuery,
+    });
+
+    return toAdminQueryRow(updatedQuery);
+  });
+}
+
+export async function getQueryById(id: string): Promise<AdminQueryRow> {
+  const row = await queriesRepo.findQueryById(db, id);
+  if (!row) {
+    throw new NotFoundError("Query not found.");
+  }
+  return toAdminQueryRow(row);
+}
+
+export async function listQueriesForAdmin(
+  query: AdminListQueriesQuery,
+): Promise<AdminListQueriesResponse> {
+  const cursor = query.cursor ? decodeCursor(query.cursor) : undefined;
+  const filters: queriesRepo.AdminQueryFilters = {};
+  if (query.status) filters.status = query.status;
+  if (query.userId) filters.userId = query.userId;
+  if (query.from) filters.from = new Date(query.from);
+  if (query.to) filters.to = new Date(query.to);
+
+  const rows = await queriesRepo.listQueriesForAdmin(db, filters, query.limit + 1, cursor);
+  const hasMore = rows.length > query.limit;
+  const pageRows = hasMore ? rows.slice(0, query.limit) : rows;
+  const lastRow = pageRows[pageRows.length - 1];
+
+  return {
+    items: pageRows.map(toAdminQueryRow),
+    nextCursor: hasMore && lastRow ? encodeCursor(lastRow) : null,
   };
 }

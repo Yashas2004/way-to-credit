@@ -75,3 +75,21 @@ export class ResourceBusyError extends AppError {
   readonly statusCode = 409;
   readonly code = "RESOURCE_BUSY";
 }
+
+/** A guarded `UPDATE ... WHERE status='pending'` affected zero rows — someone else already resolved it. */
+export class AlreadyResolvedError extends AppError {
+  readonly statusCode = 409;
+  readonly code = "ALREADY_RESOLVED";
+}
+
+/** One generic code for every OTP failure mode (missing admin, wrong OTP, expired, too many attempts) — no oracle across reasons. */
+export class InvalidOtpError extends AppError {
+  readonly statusCode = 400;
+  readonly code = "INVALID_OTP";
+}
+
+/** Redis unreachable on a path that must fail closed rather than risk an unchecked duplicate write. */
+export class ServiceUnavailableError extends AppError {
+  readonly statusCode = 503;
+  readonly code = "SERVICE_UNAVAILABLE";
+}

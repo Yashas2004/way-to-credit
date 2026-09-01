@@ -1,4 +1,4 @@
-import { and, desc, eq, lt, or } from "drizzle-orm";
+import { and, desc, eq, gte, lt, lte, or } from "drizzle-orm";
 import { queries } from "../../db/schema/index.js";
 import type { DbOrTx } from "../../db/types.js";
 
@@ -49,6 +49,75 @@ export async function listQueriesForUser(
     .select()
     .from(queries)
     .where(whereClause)
+    .orderBy(desc(queries.raisedAt), desc(queries.id))
+    .limit(limit);
+}
+
+export async function findQueryById(db: DbOrTx, id: string): Promise<QueryRow | undefined> {
+  const [row] = await db.select().from(queries).where(eq(queries.id, id)).limit(1);
+  return row;
+}
+
+export type QueryStatusValue = "pending" | "approved" | "rejected";
+
+/**
+ * The entire concurrency guard for approve/reject — a bare guarded
+ * `UPDATE ... WHERE status='pending' RETURNING *`, no prior `SELECT ...
+ * FOR UPDATE`. Under READ COMMITTED, a second concurrent UPDATE targeting
+ * the same row blocks until the first commits, then re-evaluates its own
+ * WHERE clause against the now-committed row and finds zero matches — no
+ * lost update, no window where two callers both see `status='pending'`.
+ * This is CLAUDE.md invariant #12's wording verbatim, not a deviation from
+ * the SELECT-FOR-UPDATE-first idiom used elsewhere in this codebase (that
+ * idiom exists for guards that need a separate dependent-row check; this
+ * guard's entire state lives in the row being written, so the UPDATE's own
+ * atomicity is sufficient).
+ */
+export async function updateQueryStatus(
+  db: DbOrTx,
+  id: string,
+  status: "approved" | "rejected",
+  resolvedBy: string,
+): Promise<QueryRow | undefined> {
+  const [row] = await db
+    .update(queries)
+    .set({ status, resolvedAt: new Date(), resolvedBy })
+    .where(and(eq(queries.id, id), eq(queries.status, "pending")))
+    .returning();
+  return row;
+}
+
+export interface AdminQueryFilters {
+  status?: QueryStatusValue;
+  userId?: string;
+  from?: Date;
+  to?: Date;
+}
+
+export async function listQueriesForAdmin(
+  db: DbOrTx,
+  filters: AdminQueryFilters,
+  limit: number,
+  cursor?: QueryKeysetCursor,
+): Promise<QueryRow[]> {
+  const conditions = [];
+  if (filters.status) conditions.push(eq(queries.status, filters.status));
+  if (filters.userId) conditions.push(eq(queries.raisedBy, filters.userId));
+  if (filters.from) conditions.push(gte(queries.raisedAt, filters.from));
+  if (filters.to) conditions.push(lte(queries.raisedAt, filters.to));
+  if (cursor) {
+    conditions.push(
+      or(
+        lt(queries.raisedAt, cursor.raisedAt),
+        and(eq(queries.raisedAt, cursor.raisedAt), lt(queries.id, cursor.id)),
+      ),
+    );
+  }
+
+  return db
+    .select()
+    .from(queries)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(queries.raisedAt), desc(queries.id))
     .limit(limit);
 }

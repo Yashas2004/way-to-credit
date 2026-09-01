@@ -22,6 +22,7 @@ const ROUTES: { method: "get" | "post"; path: string }[] = [
   { method: "post", path: "/api/user/queries" },
   { method: "get", path: "/api/user/queries" },
   { method: "get", path: "/api/user/me/credits" },
+  { method: "post", path: `/api/user/me/milestones/${ID}/seen` },
 ];
 
 describe("every user-stage route rejects an admin token with 403 FORBIDDEN", () => {
