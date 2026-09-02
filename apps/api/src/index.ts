@@ -8,6 +8,22 @@ const SHUTDOWN_TIMEOUT_MS = 10_000;
 
 const app = createApp();
 
+if (env.NODE_ENV === "development" && env.FAKE_NOW) {
+  // Loud and impossible to miss on purpose — this is the one condition
+  // under which the Mon-Sat/9-6 IST user access window is evaluated
+  // against something other than the real clock (see lib/clock.ts). The
+  // NODE_ENV==="development" gate in lib/clock.ts is what actually makes
+  // this inert everywhere else; this banner exists only so nobody staring
+  // at local dev server output mistakes what they're seeing for normal
+  // operation.
+  logger.warn("################################################################");
+  logger.warn("# FAKE_NOW IS ACTIVE");
+  logger.warn("# The user access-window clock is faked, not the real time.");
+  logger.warn(`# FAKE_NOW = ${env.FAKE_NOW}`);
+  logger.warn("# This must NEVER be set outside local development.");
+  logger.warn("################################################################");
+}
+
 const server = app.listen(env.PORT, () => {
   logger.info(`API listening on port ${String(env.PORT)}`);
 });

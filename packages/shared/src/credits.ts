@@ -45,3 +45,29 @@ export const AdjustCreditsResponseSchema = z.object({
   newlyUnlockedMilestones: z.array(NewlyUnlockedMilestoneSchema),
 });
 export type AdjustCreditsResponse = z.infer<typeof AdjustCreditsResponseSchema>;
+
+/**
+ * Every active milestone, locked or unlocked, for the rewards map — unlike
+ * `UnlockedMilestoneSchema` above, which powers `/credits` and only ever
+ * lists milestones this user has already crossed. `unlockedAt`/`seenAt` are
+ * both null for a locked milestone; `seenAt` is null for an unlocked one
+ * the animate-once rewards map hasn't yet reported back via
+ * `POST /me/milestones/:id/seen`.
+ */
+export const RewardsMilestoneSchema = z.object({
+  milestoneId: uuidParam,
+  levelNumber: z.number().int(),
+  pointsRequired: z.number().int(),
+  title: z.string(),
+  message: z.string(),
+  unlockedAt: z.string().nullable(),
+  seenAt: z.string().nullable(),
+});
+export type RewardsMilestone = z.infer<typeof RewardsMilestoneSchema>;
+
+/** Ordered by levelNumber ascending. */
+export const RewardsMapResponseSchema = z.object({
+  creditPoints: z.number().int(),
+  milestones: z.array(RewardsMilestoneSchema),
+});
+export type RewardsMapResponse = z.infer<typeof RewardsMapResponseSchema>;

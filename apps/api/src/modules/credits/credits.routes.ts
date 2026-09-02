@@ -20,6 +20,15 @@ creditsRouter.get("/credits", async (req, res, next) => {
   }
 });
 
+creditsRouter.get("/rewards", async (req, res, next) => {
+  try {
+    const result = await creditsService.getRewardsMap(requireActorId(req));
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
 creditsRouter.post("/milestones/:id/seen", async (req, res, next) => {
   try {
     const idResult = uuidParam.safeParse(req.params.id);

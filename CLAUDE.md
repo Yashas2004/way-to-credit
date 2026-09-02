@@ -146,6 +146,14 @@ These are correctness and security requirements. Violating one is a bug even if 
 22. Credit, query, and activity-log writes must not block the description-lookup response path.
 23. Secrets come from `process.env`, parsed and validated at boot by `config/env.ts`.
     The process must **fail to start** if a required secret is missing. Never commit `.env`.
+24. `FAKE_NOW` (`config/env.ts`) lets a developer fake the clock that
+    `middleware/timeWindow.ts` and `auth.service.ts`'s login/refresh evaluate the
+    Mon–Sat/9–6 IST user access window against — for local screenshot/manual-testing use
+    only, never a substitute for a proper test with an injected clock. It is read
+    (`lib/clock.ts`) **only** when `NODE_ENV === "development"`; outside that it does
+    nothing, by construction, not by convention. `index.ts` logs a loud warning at boot
+    whenever it's active. It must **never** be honoured in production — do not widen the
+    `NODE_ENV` check, and do not set `FAKE_NOW` in any deployed environment's config.
 
 ---
 

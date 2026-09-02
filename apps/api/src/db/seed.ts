@@ -109,6 +109,9 @@ const DESCRIPTION_TEXT: Record<string, string> = {
     "First tranche disbursed directly to the educational institution as per the fee schedule.",
 };
 
+// `title` is the short, level-scoped label (used in admin CRUD contexts);
+// `message` is the reward copy itself — what a broken-open seal on the
+// rewards map (and the milestone-unlock moment generally) actually shows.
 const MILESTONES: readonly {
   levelNumber: number;
   pointsRequired: number;
@@ -118,39 +121,38 @@ const MILESTONES: readonly {
   {
     levelNumber: 1,
     pointsRequired: 5,
-    title: "First Steps",
-    message:
-      "You've earned your first 5 credit points! Keep raising queries to unlock the next milestone.",
+    title: "Level 1",
+    message: "Recognition in the team channel",
   },
   {
     levelNumber: 2,
     pointsRequired: 10,
-    title: "Getting the Hang of It",
-    message: "10 points banked — you're becoming a regular. 15 points unlocks the next chest.",
+    title: "Level 2",
+    message: "₹500 gift voucher",
   },
   {
     levelNumber: 3,
     pointsRequired: 15,
-    title: "Halfway There",
-    message: "15 points and climbing. The treasure map has plenty more ahead.",
+    title: "Level 3",
+    message: "Half-day off, your choice of date",
   },
   {
     levelNumber: 4,
     pointsRequired: 20,
-    title: "Seasoned Explorer",
-    message: "20 points! Your queries are genuinely improving the knowledge base.",
+    title: "Level 4",
+    message: "₹1,500 gift voucher",
   },
   {
     levelNumber: 5,
     pointsRequired: 25,
-    title: "Trailblazer",
-    message: "25 points — you're in rare company. One more chest to go on this leg of the map.",
+    title: "Level 5",
+    message: "Lunch on the company, with a guest",
   },
   {
     levelNumber: 6,
     pointsRequired: 30,
-    title: "Treasure Hunter",
-    message: "30 points reached — thank you for helping keep the portal accurate.",
+    title: "Level 6",
+    message: "₹5,000 bonus",
   },
 ];
 

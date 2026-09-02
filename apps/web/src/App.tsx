@@ -11,7 +11,11 @@ import { LoginPage } from "./routes/LoginPage";
 import { NotFoundPage } from "./routes/NotFoundPage";
 import { OutsideWindowPage } from "./routes/OutsideWindowPage";
 import { PlaceholderPage } from "./routes/PlaceholderPage";
+import { LandingPage } from "./routes/user/LandingPage";
+import { MyQueriesPage } from "./routes/user/MyQueriesPage";
+import { RewardsPage } from "./routes/user/RewardsPage";
 import { UserShell } from "./routes/user/UserShell";
+import { WorkspacePage } from "./routes/user/WorkspacePage";
 
 /** Sends an already-authenticated visitor straight to their shell instead of bouncing through the login form. */
 function RootRedirect() {
@@ -58,8 +62,10 @@ export function App() {
 
               <Route element={<UserGuard />}>
                 <Route path="/user" element={<UserShell />}>
-                  <Route index element={<PlaceholderPage title="Workspace" />} />
-                  <Route path="rewards" element={<PlaceholderPage title="My Rewards" />} />
+                  <Route index element={<LandingPage />} />
+                  <Route path="workspace" element={<WorkspacePage />} />
+                  <Route path="queries" element={<MyQueriesPage />} />
+                  <Route path="rewards" element={<RewardsPage />} />
                 </Route>
               </Route>
 

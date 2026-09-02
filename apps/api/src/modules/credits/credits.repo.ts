@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, lte, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lte, sql } from "drizzle-orm";
 import { creditTransactions, milestones, userMilestones, users } from "../../db/schema/index.js";
 import type { DbOrTx } from "../../db/types.js";
 
@@ -171,4 +171,46 @@ export async function listUnlockedMilestonesForUser(
     .innerJoin(milestones, eq(userMilestones.milestoneId, milestones.id))
     .where(eq(userMilestones.userId, userId))
     .orderBy(milestones.levelNumber);
+}
+
+export interface RewardsMapMilestoneRow {
+  milestoneId: string;
+  levelNumber: number;
+  pointsRequired: number;
+  title: string;
+  message: string;
+  unlockedAt: Date | null;
+  seenAt: Date | null;
+}
+
+/**
+ * Every active milestone (locked or unlocked) for the rewards map, left-joined
+ * against this user's own `user_milestones` row so a locked milestone comes
+ * back with `unlockedAt`/`seenAt` both null rather than being omitted.
+ * `isActive` IS filtered here — unlike `listUnlockedMilestonesForUser`,
+ * which deliberately ignores it to preserve history (see that function's
+ * comment), the rewards map is a forward-looking view of the current active
+ * set, not a historical record.
+ */
+export async function listAllMilestonesForUser(
+  db: DbOrTx,
+  userId: string,
+): Promise<RewardsMapMilestoneRow[]> {
+  return db
+    .select({
+      milestoneId: milestones.id,
+      levelNumber: milestones.levelNumber,
+      pointsRequired: milestones.pointsRequired,
+      title: milestones.title,
+      message: milestones.message,
+      unlockedAt: userMilestones.unlockedAt,
+      seenAt: userMilestones.seenAt,
+    })
+    .from(milestones)
+    .leftJoin(
+      userMilestones,
+      and(eq(userMilestones.milestoneId, milestones.id), eq(userMilestones.userId, userId)),
+    )
+    .where(eq(milestones.isActive, true))
+    .orderBy(asc(milestones.levelNumber));
 }

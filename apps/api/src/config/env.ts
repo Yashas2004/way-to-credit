@@ -16,6 +16,13 @@ const envSchema = z.object({
   // today (TRAI DLT registration isn't complete yet).
   SMS_PROVIDER: z.enum(["console", "msg91"]).default("console"),
   MSG91_AUTH_KEY: z.string().min(1).optional(),
+  // Dev-only escape hatch so a local Playwright run can screenshot the
+  // Mon-Sat/9-6 IST user access window from outside it, without touching
+  // `isWithinUserAccessWindow` or any other access-control code. Honoured
+  // ONLY when NODE_ENV is exactly "development" — see middleware/timeWindow.ts
+  // and index.ts's boot-time warning — and never read at all otherwise, so
+  // setting it in a production or staging environment has zero effect.
+  FAKE_NOW: z.string().datetime().optional(),
 });
 
 const isProduction = process.env["NODE_ENV"] === "production";

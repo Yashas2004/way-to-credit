@@ -2,6 +2,7 @@ import { uuidv7 } from "uuidv7";
 import { db } from "../../db/client.js";
 import type { DbOrTx } from "../../db/types.js";
 import { recordAudit } from "../../lib/audit.js";
+import { currentInstant } from "../../lib/clock.js";
 import { REFRESH_TOKEN_TTL_MS } from "../../lib/cookies.js";
 import {
   AccountInactiveError,
@@ -98,7 +99,7 @@ async function issueSession(
 export async function login(
   input: { identifier: string; password: string },
   context: RequestContext,
-  now: Date = new Date(),
+  now: Date = currentInstant(),
 ): Promise<AuthResult> {
   const admin = await authRepo.findAdminByAdminId(db, input.identifier);
 
@@ -161,7 +162,7 @@ export async function login(
 export async function refresh(
   refreshTokenRaw: string,
   context: RequestContext,
-  now: Date = new Date(),
+  now: Date = currentInstant(),
 ): Promise<AuthResult> {
   const hash = hashRefreshToken(refreshTokenRaw);
   const session = await authRepo.findSessionByRefreshHash(db, hash);

@@ -2,6 +2,7 @@ import type {
   AdjustCreditsResponse,
   MarkMilestoneSeenResponse,
   MyCreditsResponse,
+  RewardsMapResponse,
 } from "@way-to-credit/shared";
 import type { DbOrTx } from "../../db/types.js";
 import { db } from "../../db/client.js";
@@ -35,6 +36,35 @@ export async function getMyCredits(userId: string): Promise<MyCreditsResponse> {
       title: row.title,
       message: row.message,
       unlockedAt: row.unlockedAt.toISOString(),
+    })),
+  };
+}
+
+/**
+ * Backs the rewards map (and the landing page's "how far to the next
+ * milestone" line) — every active milestone, locked and unlocked, so the
+ * client can render intact seals with a points-needed count without ever
+ * hardcoding milestone copy (CLAUDE.md: "Milestone copy is
+ * admin-configurable, never hardcoded").
+ */
+export async function getRewardsMap(userId: string): Promise<RewardsMapResponse> {
+  const creditPoints = await creditsRepo.findUserCreditPoints(db, userId);
+  if (creditPoints === undefined) {
+    throw new NotFoundError("User not found.");
+  }
+
+  const milestoneRows = await creditsRepo.listAllMilestonesForUser(db, userId);
+
+  return {
+    creditPoints,
+    milestones: milestoneRows.map((row) => ({
+      milestoneId: row.milestoneId,
+      levelNumber: row.levelNumber,
+      pointsRequired: row.pointsRequired,
+      title: row.title,
+      message: row.message,
+      unlockedAt: row.unlockedAt ? row.unlockedAt.toISOString() : null,
+      seenAt: row.seenAt ? row.seenAt.toISOString() : null,
     })),
   };
 }
