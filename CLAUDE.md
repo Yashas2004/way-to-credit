@@ -199,6 +199,16 @@ CI runs `typecheck`, `lint`, `test`, and `build`. All four must pass before merg
 
 ---
 
+## Frontend
+
+- **Framer Motion vs. raw SVG `transform`:** Framer Motion manages the `transform`
+  attribute on any `motion.*` element that has `animate` or `transition`. A raw
+  `transform="..."` attribute on that same element is silently discarded. Put static
+  positioning on a plain parent `<g>` and animate a child. This has caused two separate
+  rendering bugs in this project.
+
+---
+
 ## Testing expectations
 
 - Every service function with branching logic gets a unit test.

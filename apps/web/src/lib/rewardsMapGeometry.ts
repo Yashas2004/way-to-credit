@@ -1,181 +1,35 @@
 /**
- * Pure geometry for the rewards map — no React, no DOM, so the bezier math
- * and text wrapping are trivially unit-testable independent of rendering.
+ * Pure, deterministic per-level variation for the certificate's wax seals —
+ * no React, no DOM, so it's trivially unit-testable. Nothing here is
+ * randomized at runtime (no `Math.random()`): every value is a fixed,
+ * hand-picked table indexed by level, so the same seal renders identically
+ * on every load, every test run, and every screenshot.
  */
 
-export interface Point {
-  x: number;
-  y: number;
-}
+/** feTurbulence seeds — drives the organic, hand-pressed wax edge (see Seal.tsx). Six distinct values so no two seals look stamped from one template. */
+const WAX_EDGE_SEED: readonly number[] = [3, 17, 9, 24, 6, 31];
 
-export type MapOrientation = "horizontal" | "vertical";
-
-const SEAL_COUNT = 6; // fixed: 6 seeded milestones, plus one "origin" (0 points) waypoint = 7 points on the path
-
-// Real pixel dimensions, not viewBox-relative percentages — the map is
-// wrapped in an `overflow-x-auto`/`overflow-y-auto` container (the same
-// pattern `Table` already uses) so text never has to shrink below a
-// readable size to "fit"; a too-narrow viewport scrolls instead.
-export const HORIZONTAL_MAP = { width: 960, height: 320, margin: 90 };
-export const VERTICAL_MAP = { width: 340, height: 1040, margin: 90 };
-
-/** 7 points: an origin (0 credits) plus the 6 milestones, in a gentle single-period wave. */
-export function computeWaypoints(orientation: MapOrientation): Point[] {
-  const dims = orientation === "horizontal" ? HORIZONTAL_MAP : VERTICAL_MAP;
-  const primaryAxisLength =
-    (orientation === "horizontal" ? dims.width : dims.height) - dims.margin * 2;
-  const crossAxisCenter = (orientation === "horizontal" ? dims.height : dims.width) / 2;
-  // Smaller amplitude on the cross axis when it's the narrow mobile width —
-  // there isn't the lateral room a desktop layout has.
-  const amplitude = orientation === "horizontal" ? 60 : 45;
-
-  const points: Point[] = [];
-  for (let i = 0; i <= SEAL_COUNT; i++) {
-    const t = i / SEAL_COUNT;
-    const primary = dims.margin + t * primaryAxisLength;
-    const cross = crossAxisCenter - amplitude * Math.sin(t * Math.PI * 2);
-    points.push(orientation === "horizontal" ? { x: primary, y: cross } : { x: cross, y: primary });
-  }
-  return points;
+export function waxEdgeSeedForLevel(levelNumber: number): number {
+  const idx = (levelNumber - 1) % WAX_EDGE_SEED.length;
+  return WAX_EDGE_SEED[idx] ?? 1;
 }
 
 /**
- * Smooth-curve control points between consecutive waypoints — a horizontal
- * (or vertical) tangent at each anchor, which reliably produces a flowing
- * curve through an arbitrary sequence of points without full Catmull-Rom.
- */
-function segmentControlPoints(p0: Point, p1: Point, orientation: MapOrientation): [Point, Point] {
-  if (orientation === "horizontal") {
-    const midX = (p0.x + p1.x) / 2;
-    return [
-      { x: midX, y: p0.y },
-      { x: midX, y: p1.y },
-    ];
-  }
-  const midY = (p0.y + p1.y) / 2;
-  return [
-    { x: p0.x, y: midY },
-    { x: p1.x, y: midY },
-  ];
-}
-
-/** The `d` attribute for the full path, as one M followed by SEAL_COUNT cubic C segments. */
-export function buildPathD(waypoints: Point[], orientation: MapOrientation): string {
-  if (waypoints.length === 0) return "";
-  const first = waypoints[0];
-  if (!first) return "";
-  const segments = [`M ${String(first.x)},${String(first.y)}`];
-  for (let i = 0; i < waypoints.length - 1; i++) {
-    const p0 = waypoints[i];
-    const p1 = waypoints[i + 1];
-    if (!p0 || !p1) continue;
-    const [cp1, cp2] = segmentControlPoints(p0, p1, orientation);
-    segments.push(
-      `C ${String(cp1.x)},${String(cp1.y)} ${String(cp2.x)},${String(cp2.y)} ${String(p1.x)},${String(p1.y)}`,
-    );
-  }
-  return segments.join(" ");
-}
-
-function cubicBezierPoint(p0: Point, p1: Point, p2: Point, p3: Point, t: number): Point {
-  const mt = 1 - t;
-  const a = mt * mt * mt;
-  const b = 3 * mt * mt * t;
-  const c = 3 * mt * t * t;
-  const d = t * t * t;
-  return {
-    x: a * p0.x + b * p1.x + c * p2.x + d * p3.x,
-    y: a * p0.y + b * p1.y + c * p2.y + d * p3.y,
-  };
-}
-
-export interface MarkerInput {
-  /** pointsRequired for each of the 6 milestones, in level order. */
-  thresholds: number[];
-  creditPoints: number;
-}
-
-/**
- * The marker's position: proportionally between the last waypoint reached
- * and the next one, walking the actual bezier segment (not a straight-line
- * approximation between the two anchor points).
- */
-export function computeMarkerPosition(
-  waypoints: Point[],
-  { thresholds, creditPoints }: MarkerInput,
-  orientation: MapOrientation,
-): Point {
-  const origin = waypoints[0];
-  if (!origin) return { x: 0, y: 0 };
-
-  // Index into `waypoints` (0 = origin, 1..6 = milestones) of the last
-  // threshold reached.
-  let lastIndex = 0;
-  for (let i = 0; i < thresholds.length; i++) {
-    if ((thresholds[i] ?? Infinity) <= creditPoints) {
-      lastIndex = i + 1;
-    }
-  }
-
-  const last = waypoints[lastIndex];
-  const next = waypoints[lastIndex + 1];
-  if (!last) return origin;
-  if (!next) return last; // every milestone reached — sit at the final seal
-
-  const lastPoints = lastIndex === 0 ? 0 : (thresholds[lastIndex - 1] ?? 0);
-  const nextPoints = thresholds[lastIndex] ?? lastPoints;
-  const span = nextPoints - lastPoints;
-  const fraction = span <= 0 ? 1 : Math.min(1, Math.max(0, (creditPoints - lastPoints) / span));
-
-  const [cp1, cp2] = segmentControlPoints(last, next, orientation);
-  return cubicBezierPoint(last, cp1, cp2, next, fraction);
-}
-
-/** Greedy word-wrap for SVG <text>/<tspan> — no browser line-wrapping exists for SVG text. */
-export function wrapText(text: string, maxCharsPerLine: number, maxLines: number): string[] {
-  const words = text.split(" ");
-  const lines: string[] = [];
-  let current = "";
-
-  for (const word of words) {
-    const candidate = current ? `${current} ${word}` : word;
-    if (candidate.length <= maxCharsPerLine || !current) {
-      current = candidate;
-    } else {
-      lines.push(current);
-      current = word;
-    }
-    if (lines.length === maxLines - 1 && lines.length > 0) {
-      // Let the final line run long rather than silently dropping words.
-    }
-  }
-  if (current) lines.push(current);
-
-  if (lines.length <= maxLines) return lines;
-
-  const truncated = lines.slice(0, maxLines);
-  const lastIndex = truncated.length - 1;
-  const last = truncated[lastIndex];
-  if (last !== undefined) {
-    truncated[lastIndex] = last.length > 3 ? `${last.slice(0, last.length - 1)}…` : `${last}…`;
-  }
-  return truncated;
-}
-
-/**
- * Deterministic, hand-picked per-level variation so the six seals don't
- * look stamped from one template — never randomized at runtime (screenshots
- * and tests must render identically every time).
+ * Horizontal offsets (px, in the seal's own 0-100 local coordinate space)
+ * for the three interior points of the fracture line, at the quarter/half/
+ * three-quarter height — an irregular break, never a clean diameter.
  */
 const CRACK_JITTER: readonly [number, number, number][] = [
-  [-3, 2, -4],
-  [4, -2, 3],
-  [-2, 4, -3],
-  [3, -4, 2],
-  [-4, 3, -2],
-  [2, -3, 4],
+  [-5, 3, -6],
+  [6, -3, 5],
+  [-3, 6, -4],
+  [5, -6, 3],
+  [-6, 4, -3],
+  [3, -4, 6],
 ];
-const CRACK_ROTATION_DEG: readonly number[] = [1.5, -2, 1, -1.5, 2, -1];
+
+/** Degrees one piece rotates away from the other on break. */
+const CRACK_ROTATION_DEG: readonly number[] = [5, -6, 4, -5, 6, -4];
 
 export function crackJitterForLevel(levelNumber: number): [number, number, number] {
   const idx = (levelNumber - 1) % CRACK_JITTER.length;
@@ -185,6 +39,82 @@ export function crackJitterForLevel(levelNumber: number): [number, number, numbe
 export function crackRotationForLevel(levelNumber: number): number {
   const idx = (levelNumber - 1) % CRACK_ROTATION_DEG.length;
   return CRACK_ROTATION_DEG[idx] ?? 0;
+}
+
+export interface Point {
+  x: number;
+  y: number;
+}
+
+export interface Drip {
+  /** Degrees from straight-down (0 = the rim's bottom-most point); negative leans left, positive leans right. */
+  angleDeg: number;
+  length: number;
+  width: number;
+}
+
+/**
+ * 2-4 small drips per level, spread across most of the lower rim — from
+ * near the sides down to the bottom — rather than clustered at the
+ * bottom center, which reads as a chin. Gravity still confines them to
+ * the lower hemisphere (never past ±90°, i.e. never above the horizontal
+ * midline), but within that they vary widely in angle, count, and length
+ * so no two seals look stamped from one template.
+ */
+const DRIP_SETS: readonly Drip[][] = [
+  [
+    { angleDeg: -75, length: 7, width: 3 },
+    { angleDeg: -10, length: 12, width: 4.5 },
+    { angleDeg: 55, length: 4, width: 2 },
+  ],
+  [
+    { angleDeg: -40, length: 5, width: 2.5 },
+    { angleDeg: 20, length: 13, width: 5 },
+    { angleDeg: 70, length: 6, width: 3 },
+  ],
+  [
+    { angleDeg: -80, length: 4, width: 2 },
+    { angleDeg: -25, length: 9, width: 3.5 },
+    { angleDeg: 45, length: 7, width: 3 },
+    { angleDeg: 80, length: 5, width: 2.5 },
+  ],
+  [
+    { angleDeg: -60, length: 11, width: 4 },
+    { angleDeg: 15, length: 3, width: 2 },
+    { angleDeg: 50, length: 8, width: 3.5 },
+  ],
+  [
+    { angleDeg: -30, length: 6, width: 3 },
+    { angleDeg: 65, length: 10, width: 4 },
+  ],
+  [
+    { angleDeg: -85, length: 5, width: 2 },
+    { angleDeg: -5, length: 4, width: 2 },
+    { angleDeg: 40, length: 12, width: 4.5 },
+    { angleDeg: 75, length: 6, width: 3 },
+  ],
+];
+
+export function dripsForLevel(levelNumber: number): readonly Drip[] {
+  const idx = (levelNumber - 1) % DRIP_SETS.length;
+  return DRIP_SETS[idx] ?? [];
+}
+
+/** Where a drip attaches on the rim, in the seal's local (0,0)-centered coordinate space. */
+export function dripAttachmentPoint(radius: number, drip: Drip): Point {
+  const rad = (drip.angleDeg * Math.PI) / 180;
+  return { x: radius * Math.sin(rad), y: radius * Math.cos(rad) };
+}
+
+/**
+ * A small teardrop, top-center at local (0,0), hanging straight down to
+ * (0, length) — drips fall with gravity, not radially outward from the
+ * rim point they started at, so this shape is never rotated to match its
+ * attachment angle, only translated there.
+ */
+export function dripPath(width: number, length: number): string {
+  const hw = width / 2;
+  return `M ${String(-hw)},0 C ${String(-hw)},${String(length * 0.55)} ${String(-width * 0.18)},${String(length)} 0,${String(length)} C ${String(width * 0.18)},${String(length)} ${String(hw)},${String(length * 0.55)} ${String(hw)},0 Z`;
 }
 
 export interface CrackPieces {
@@ -197,9 +127,10 @@ export interface CrackPieces {
 /**
  * Splits a circle of the given radius (centered on the seal's own local
  * origin) into two irregular pieces along a jagged line — a fracture, not a
- * clean diameter. The three jitter values offset the break line at the
- * quarter/half/three-quarter height so consecutive seals, given different
- * jitter triples, don't read as stamped from one template.
+ * clean diameter. The wax-edge turbulence filter is applied to these paths
+ * too (see Seal.tsx), which additionally roughens the fracture edges
+ * themselves — "wax edges along the break are slightly lifted and
+ * irregular" comes from that filter, not from extra geometry here.
  */
 export function buildCrackPieces(radius: number, jitter: [number, number, number]): CrackPieces {
   const [j1, j2, j3] = jitter;
@@ -213,4 +144,29 @@ export function buildCrackPieces(radius: number, jitter: [number, number, number
     // Bottom back to top via the right (+x) semicircle: sweep-flag 0.
     rightD: `M ${top} ${crackDown} L ${bottom} A ${String(radius)},${String(radius)} 0 0,0 ${top} Z`,
   };
+}
+
+/**
+ * Given the six milestones' pointsRequired (ascending) and the user's
+ * current total, returns the index (0-based) of the "next" milestone — the
+ * one that gets the hero treatment — or -1 if every milestone is already
+ * unlocked. Used by RewardsCertificate to decide which row is the hero,
+ * and to compute that row's progress fraction.
+ */
+export function nextMilestoneIndex(thresholds: readonly number[], creditPoints: number): number {
+  return thresholds.findIndex((threshold) => threshold > creditPoints);
+}
+
+/** Progress fraction (0-1) toward the milestone at `index`, given the previous threshold (0 if it's the first). */
+export function progressFraction(
+  thresholds: readonly number[],
+  index: number,
+  creditPoints: number,
+): number {
+  const threshold = thresholds[index];
+  if (threshold === undefined) return 0;
+  const previous = index === 0 ? 0 : (thresholds[index - 1] ?? 0);
+  const span = threshold - previous;
+  if (span <= 0) return 1;
+  return Math.min(1, Math.max(0, (creditPoints - previous) / span));
 }

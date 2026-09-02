@@ -71,3 +71,34 @@ export const RewardsMapResponseSchema = z.object({
   milestones: z.array(RewardsMilestoneSchema),
 });
 export type RewardsMapResponse = z.infer<typeof RewardsMapResponseSchema>;
+
+/**
+ * One ledger row. `queryId`/the three snapshot fields are all null together
+ * for a manual admin adjustment (no query behind it) and all non-null
+ * together for a query approval — never a partial mix, since they're a
+ * single left join in the repo.
+ */
+export const CreditHistoryEntrySchema = z.object({
+  id: uuidParam,
+  delta: z.number().int(),
+  reason: z.string(),
+  createdAt: z.string(),
+  queryId: uuidParam.nullable(),
+  bankNameSnapshot: z.string().nullable(),
+  loanTypeNameSnapshot: z.string().nullable(),
+  statusNameSnapshot: z.string().nullable(),
+});
+export type CreditHistoryEntry = z.infer<typeof CreditHistoryEntrySchema>;
+
+export const CreditHistoryQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).optional().default(50),
+  cursor: z.string().optional(),
+});
+export type CreditHistoryQuery = z.infer<typeof CreditHistoryQuerySchema>;
+
+/** Newest first, cursor-paginated — this user's own rows only. */
+export const CreditHistoryResponseSchema = z.object({
+  items: z.array(CreditHistoryEntrySchema),
+  nextCursor: z.string().nullable(),
+});
+export type CreditHistoryResponse = z.infer<typeof CreditHistoryResponseSchema>;

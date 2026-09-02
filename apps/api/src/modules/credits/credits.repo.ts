@@ -1,5 +1,11 @@
-import { and, asc, eq, inArray, isNull, lte, sql } from "drizzle-orm";
-import { creditTransactions, milestones, userMilestones, users } from "../../db/schema/index.js";
+import { and, asc, desc, eq, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
+import {
+  creditTransactions,
+  milestones,
+  queries,
+  userMilestones,
+  users,
+} from "../../db/schema/index.js";
 import type { DbOrTx } from "../../db/types.js";
 
 export async function findUserCreditPoints(
@@ -213,4 +219,64 @@ export async function listAllMilestonesForUser(
     )
     .where(eq(milestones.isActive, true))
     .orderBy(asc(milestones.levelNumber));
+}
+
+export interface CreditHistoryKeysetCursor {
+  createdAt: Date;
+  id: string;
+}
+
+export interface CreditHistoryRow {
+  id: string;
+  delta: number;
+  reason: string;
+  createdAt: Date;
+  queryId: string | null;
+  bankNameSnapshot: string | null;
+  loanTypeNameSnapshot: string | null;
+  statusNameSnapshot: string | null;
+}
+
+/**
+ * This user's full credit ledger, newest first, keyset-paginated on
+ * `(created_at desc, id desc)` — the same idiom `queries.repo.ts`'s
+ * `listQueriesForUser` uses. Left-joined against `queries` (not inner) so a
+ * manual admin adjustment — `queryId` null — still comes back as a row,
+ * just with all three snapshot columns null rather than being dropped.
+ */
+export async function listCreditHistoryForUser(
+  db: DbOrTx,
+  userId: string,
+  limit: number,
+  cursor?: CreditHistoryKeysetCursor,
+): Promise<CreditHistoryRow[]> {
+  const whereClause = cursor
+    ? and(
+        eq(creditTransactions.userId, userId),
+        or(
+          lt(creditTransactions.createdAt, cursor.createdAt),
+          and(
+            eq(creditTransactions.createdAt, cursor.createdAt),
+            lt(creditTransactions.id, cursor.id),
+          ),
+        ),
+      )
+    : eq(creditTransactions.userId, userId);
+
+  return db
+    .select({
+      id: creditTransactions.id,
+      delta: creditTransactions.delta,
+      reason: creditTransactions.reason,
+      createdAt: creditTransactions.createdAt,
+      queryId: creditTransactions.queryId,
+      bankNameSnapshot: queries.bankNameSnapshot,
+      loanTypeNameSnapshot: queries.loanTypeNameSnapshot,
+      statusNameSnapshot: queries.statusNameSnapshot,
+    })
+    .from(creditTransactions)
+    .leftJoin(queries, eq(creditTransactions.queryId, queries.id))
+    .where(whereClause)
+    .orderBy(desc(creditTransactions.createdAt), desc(creditTransactions.id))
+    .limit(limit);
 }

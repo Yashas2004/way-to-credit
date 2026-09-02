@@ -1,4 +1,5 @@
 import type {
+  CreditHistoryResponse,
   DescriptionLookupResponse,
   ListQueriesResponse,
   QueryRow,
@@ -43,4 +44,15 @@ export function fetchRewardsMap(): Promise<RewardsMapResponse> {
 
 export function markMilestoneSeen(milestoneId: string): Promise<{ status: "ok" }> {
   return apiPost<{ status: "ok" }>(`/api/user/me/milestones/${milestoneId}/seen`);
+}
+
+export function fetchCreditHistory(params: {
+  limit?: number;
+  cursor?: string;
+}): Promise<CreditHistoryResponse> {
+  const search = new URLSearchParams();
+  if (params.limit) search.set("limit", String(params.limit));
+  if (params.cursor) search.set("cursor", params.cursor);
+  const qs = search.toString();
+  return apiGet<CreditHistoryResponse>(`/api/user/me/credits/history${qs ? `?${qs}` : ""}`);
 }

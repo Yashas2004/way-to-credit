@@ -1,5 +1,6 @@
 import type {
   AdjustCreditsResponse,
+  CreditHistoryResponse,
   MarkMilestoneSeenResponse,
   MyCreditsResponse,
   RewardsMapResponse,
@@ -7,11 +8,80 @@ import type {
 import type { DbOrTx } from "../../db/types.js";
 import { db } from "../../db/client.js";
 import { recordAudit } from "../../lib/audit.js";
-import { ConflictError, NotFoundError, ServiceUnavailableError } from "../../lib/errors.js";
+import {
+  ConflictError,
+  NotFoundError,
+  ServiceUnavailableError,
+  ValidationError,
+} from "../../lib/errors.js";
 import { logger } from "../../lib/logger.js";
 import { runLockedTransaction } from "../../lib/lockedTransaction.js";
 import { redis } from "../../lib/redis.js";
 import * as creditsRepo from "./credits.repo.js";
+
+const INVALID_CURSOR_MESSAGE = "Invalid pagination cursor.";
+
+function encodeHistoryCursor(row: { createdAt: Date; id: string }): string {
+  return Buffer.from(
+    JSON.stringify({ createdAt: row.createdAt.toISOString(), id: row.id }),
+  ).toString("base64url");
+}
+
+function decodeHistoryCursor(cursor: string): creditsRepo.CreditHistoryKeysetCursor {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8"));
+  } catch {
+    throw new ValidationError(INVALID_CURSOR_MESSAGE);
+  }
+
+  if (typeof parsed !== "object" || parsed === null) {
+    throw new ValidationError(INVALID_CURSOR_MESSAGE);
+  }
+  const { createdAt, id } = parsed as Record<string, unknown>;
+  if (typeof createdAt !== "string" || typeof id !== "string") {
+    throw new ValidationError(INVALID_CURSOR_MESSAGE);
+  }
+
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) {
+    throw new ValidationError(INVALID_CURSOR_MESSAGE);
+  }
+
+  return { createdAt: date, id };
+}
+
+/**
+ * This user's own credit ledger, newest first — the record behind "how did
+ * I earn this milestone." Never takes any id but the caller's own; there is
+ * no userId parameter to mix up.
+ */
+export async function getCreditHistory(
+  userId: string,
+  limit: number,
+  cursorToken?: string,
+): Promise<CreditHistoryResponse> {
+  const cursor = cursorToken ? decodeHistoryCursor(cursorToken) : undefined;
+
+  const rows = await creditsRepo.listCreditHistoryForUser(db, userId, limit + 1, cursor);
+  const hasMore = rows.length > limit;
+  const pageRows = hasMore ? rows.slice(0, limit) : rows;
+  const lastRow = pageRows[pageRows.length - 1];
+
+  return {
+    items: pageRows.map((row) => ({
+      id: row.id,
+      delta: row.delta,
+      reason: row.reason,
+      createdAt: row.createdAt.toISOString(),
+      queryId: row.queryId,
+      bankNameSnapshot: row.bankNameSnapshot,
+      loanTypeNameSnapshot: row.loanTypeNameSnapshot,
+      statusNameSnapshot: row.statusNameSnapshot,
+    })),
+    nextCursor: hasMore && lastRow ? encodeHistoryCursor(lastRow) : null,
+  };
+}
 
 /**
  * Read-only this stage — no credit-awarding logic here. `creditPoints ===
