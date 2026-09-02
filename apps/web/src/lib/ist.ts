@@ -39,6 +39,28 @@ export function isWarningWindow(date: Date): boolean {
   return minutesOfDay >= WARNING_START_MINUTES && minutesOfDay < CUTOFF_MINUTES;
 }
 
+/**
+ * Converts an IST calendar date ("2026-09-02") to the UTC instant range
+ * covering that whole IST day — for admin date-range filters, where a
+ * picked date means "that day in IST", not "that day in UTC". The literal
+ * `+05:30` offset in the ISO string lets `Date` do the conversion; no
+ * manual offset arithmetic needed.
+ */
+export function istDayRangeUtc(dateStr: string): { fromUtc: string; toUtc: string } {
+  const start = new Date(`${dateStr}T00:00:00.000+05:30`);
+  const end = new Date(start.getTime() + 24 * 60 * 60_000 - 1);
+  return { fromUtc: start.toISOString(), toUtc: end.toISOString() };
+}
+
+/** "2026-09-02" in IST — used to name the knowledge-base export file so a same-day re-export overwrites rather than colliding on a UTC-date filename. */
+export function formatIstDateStamp(date: Date): string {
+  const shifted = toIstShifted(date);
+  const year = shifted.getUTCFullYear();
+  const month = String(shifted.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(shifted.getUTCDate()).padStart(2, "0");
+  return `${String(year)}-${month}-${day}`;
+}
+
 export interface FormatIstClockOptions {
   /** @default true */
   seconds?: boolean;

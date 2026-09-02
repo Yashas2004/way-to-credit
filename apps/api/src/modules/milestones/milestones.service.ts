@@ -11,7 +11,10 @@ import * as milestonesRepo from "./milestones.repo.js";
 
 const ENTITY_TYPE = "milestones";
 
-function toMilestoneResponse(row: milestonesRepo.MilestoneRow): MilestoneResponse {
+function toMilestoneResponse(
+  row: milestonesRepo.MilestoneRow,
+  unlockedCount: number,
+): MilestoneResponse {
   return {
     id: row.id,
     levelNumber: row.levelNumber,
@@ -21,6 +24,7 @@ function toMilestoneResponse(row: milestonesRepo.MilestoneRow): MilestoneRespons
     isActive: row.isActive,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+    unlockedCount,
   };
 }
 
@@ -50,12 +54,13 @@ export async function createMilestone(
     }
     throw error;
   }
-  return toMilestoneResponse(row);
+  // A brand-new milestone genuinely has 0 unlocks — no need to query for it.
+  return toMilestoneResponse(row, 0);
 }
 
 export async function listMilestones(): Promise<MilestoneResponse[]> {
-  const rows = await milestonesRepo.listMilestones(db);
-  return rows.map(toMilestoneResponse);
+  const rows = await milestonesRepo.listMilestonesWithUnlockCounts(db);
+  return rows.map((row) => toMilestoneResponse(row, row.unlockedCount));
 }
 
 /**
@@ -102,7 +107,11 @@ export async function updateMilestone(
     }
     throw error;
   }
-  return toMilestoneResponse(after);
+  // Editing never touches user_milestones (see the comment above) — this
+  // milestone may well already have real unlocks, so the count has to be
+  // fetched, not assumed 0.
+  const unlockedCount = await milestonesRepo.countUnlockedForMilestone(db, after.id);
+  return toMilestoneResponse(after, unlockedCount);
 }
 
 async function setActive(
@@ -132,7 +141,8 @@ async function setActive(
     });
     return updated;
   });
-  return toMilestoneResponse(after);
+  const unlockedCount = await milestonesRepo.countUnlockedForMilestone(db, after.id);
+  return toMilestoneResponse(after, unlockedCount);
 }
 
 export async function deactivateMilestone(actorId: string, id: string): Promise<MilestoneResponse> {

@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, lt, lte, or } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, lt, lte, or } from "drizzle-orm";
 import { queries } from "../../db/schema/index.js";
 import type { DbOrTx } from "../../db/types.js";
 
@@ -94,11 +94,20 @@ export interface AdminQueryFilters {
   to?: Date;
 }
 
+/**
+ * `sort` flips both the `orderBy` direction and the keyset cursor's
+ * comparison operators together — `asc` isn't just `desc` read backwards,
+ * a cursor built for one direction is wrong for the other. In practice
+ * only the dashboard's "oldest pending queries" widget ever passes `asc`,
+ * and only ever without a cursor (its first, only page) — the query inbox
+ * screen itself always wants newest-first, `desc`'s existing default.
+ */
 export async function listQueriesForAdmin(
   db: DbOrTx,
   filters: AdminQueryFilters,
   limit: number,
   cursor?: QueryKeysetCursor,
+  sort: "asc" | "desc" = "desc",
 ): Promise<QueryRow[]> {
   const conditions = [];
   if (filters.status) conditions.push(eq(queries.status, filters.status));
@@ -107,10 +116,15 @@ export async function listQueriesForAdmin(
   if (filters.to) conditions.push(lte(queries.raisedAt, filters.to));
   if (cursor) {
     conditions.push(
-      or(
-        lt(queries.raisedAt, cursor.raisedAt),
-        and(eq(queries.raisedAt, cursor.raisedAt), lt(queries.id, cursor.id)),
-      ),
+      sort === "asc"
+        ? or(
+            gt(queries.raisedAt, cursor.raisedAt),
+            and(eq(queries.raisedAt, cursor.raisedAt), gt(queries.id, cursor.id)),
+          )
+        : or(
+            lt(queries.raisedAt, cursor.raisedAt),
+            and(eq(queries.raisedAt, cursor.raisedAt), lt(queries.id, cursor.id)),
+          ),
     );
   }
 
@@ -118,6 +132,9 @@ export async function listQueriesForAdmin(
     .select()
     .from(queries)
     .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(desc(queries.raisedAt), desc(queries.id))
+    .orderBy(
+      sort === "asc" ? asc(queries.raisedAt) : desc(queries.raisedAt),
+      sort === "asc" ? asc(queries.id) : desc(queries.id),
+    )
     .limit(limit);
 }

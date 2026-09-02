@@ -248,4 +248,46 @@ describe("admin queries API — approve/reject", () => {
     expect(body.items.some((q) => q.id === queryId)).toBe(true);
     expect(body.items.every((q) => q.status === "rejected")).toBe(true);
   });
+
+  it("GET / defaults to newest-first, and sort=asc reverses it — the dashboard's only real use is this unpaginated first page", async () => {
+    // A dedicated user, not the describe block's shared `user` — earlier
+    // tests in this file already raised queries for that one, which would
+    // make an unpaginated limit=3 read pick up rows from those other
+    // tests instead of exactly these three.
+    const sortUser = await createTestUser(admin.id);
+    const sortUserCookie = await loginAs(app, sortUser.userId);
+
+    // `raisedAt` is `defaultNow()` — stamped by Postgres's own real clock,
+    // not affected by this file's `vi.useFakeTimers({ toFake: ["Date"] })`
+    // (that only fakes the Node process's `Date`) — but the row *id* is a
+    // UUIDv7 generated in this now-frozen-`Date` Node process, so unlike
+    // in a real, unfrozen run, three ids minted here can share the same
+    // millisecond prefix with no reliable relative order. Assert only on
+    // `raisedAt`-driven ordering here — a real small delay between raises
+    // so Postgres's own clock (unaffected by the freeze) actually
+    // separates them — not on id order, which this test environment
+    // can't make trustworthy the way a real deployment's clock would.
+    const ids: string[] = [];
+    try {
+      for (let i = 0; i < 3; i++) {
+        ids.push(await raiseQueryAs(sortUserCookie));
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+
+      const desc = await request(app)
+        .get(`/api/admin/queries?userId=${sortUser.id}&limit=3`)
+        .set("Cookie", adminCookie);
+      expect((desc.body as { items: AdminQueryRowBody[] }).items.map((q) => q.id)).toEqual(
+        [...ids].reverse(),
+      );
+
+      const asc = await request(app)
+        .get(`/api/admin/queries?userId=${sortUser.id}&limit=3&sort=asc`)
+        .set("Cookie", adminCookie);
+      expect((asc.body as { items: AdminQueryRowBody[] }).items.map((q) => q.id)).toEqual(ids);
+    } finally {
+      await db.delete(queries).where(eq(queries.raisedBy, sortUser.id));
+      await deleteTestUser(sortUser.id);
+    }
+  });
 });

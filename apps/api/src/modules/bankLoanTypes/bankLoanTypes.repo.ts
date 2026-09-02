@@ -1,5 +1,5 @@
-import { and, eq } from "drizzle-orm";
-import { bankLoanTypes } from "../../db/schema/index.js";
+import { and, asc, eq, isNull } from "drizzle-orm";
+import { bankLoanTypes, loanTypes } from "../../db/schema/index.js";
 import type { DbOrTx } from "../../db/types.js";
 
 export async function findPair(db: DbOrTx, bankId: string, loanTypeId: string) {
@@ -34,4 +34,20 @@ export async function deletePair(db: DbOrTx, bankId: string, loanTypeId: string)
   await db
     .delete(bankLoanTypes)
     .where(and(eq(bankLoanTypes.bankId, bankId), eq(bankLoanTypes.loanTypeId, loanTypeId)));
+}
+
+/** Active loan types currently attached to a bank — for the knowledge base's own bank→loan-type cascade and the catalog drawer's attach/detach state. */
+export async function listLoanTypesForBank(db: DbOrTx, bankId: string) {
+  return db
+    .select({
+      id: loanTypes.id,
+      name: loanTypes.name,
+      deletedAt: loanTypes.deletedAt,
+      createdAt: loanTypes.createdAt,
+      updatedAt: loanTypes.updatedAt,
+    })
+    .from(bankLoanTypes)
+    .innerJoin(loanTypes, eq(bankLoanTypes.loanTypeId, loanTypes.id))
+    .where(and(eq(bankLoanTypes.bankId, bankId), isNull(loanTypes.deletedAt)))
+    .orderBy(asc(loanTypes.name));
 }

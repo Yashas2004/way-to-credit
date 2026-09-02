@@ -116,4 +116,52 @@ describe("bank-loan-type wiring admin API", () => {
 
     await db.delete(statuses).where(eq(statuses.id, status.id));
   });
+
+  it("lists only active, attached loan types for a bank — excluding unattached and soft-deleted ones — and 404s for a missing bank", async () => {
+    const [unattached] = await db
+      .insert(loanTypes)
+      .values({ name: `Unattached Loan Type ${randomUUID()}` })
+      .returning();
+    const [deletedButAttached] = await db
+      .insert(loanTypes)
+      .values({ name: `Deleted Loan Type ${randomUUID()}` })
+      .returning();
+    if (!unattached || !deletedButAttached) throw new Error("fixture insert failed");
+
+    await request(app)
+      .post(`/api/admin/banks/${bankId}/loan-types/${loanTypeId}`)
+      .set("Cookie", cookie);
+    await db.insert(bankLoanTypes).values({ bankId, loanTypeId: deletedButAttached.id });
+    await db
+      .update(loanTypes)
+      .set({ deletedAt: new Date() })
+      .where(eq(loanTypes.id, deletedButAttached.id));
+
+    try {
+      const res = await request(app)
+        .get(`/api/admin/banks/${bankId}/loan-types`)
+        .set("Cookie", cookie);
+      expect(res.status).toBe(200);
+      const ids = (res.body as { id: string }[]).map((row) => row.id);
+      expect(ids).toContain(loanTypeId);
+      expect(ids).not.toContain(unattached.id);
+      expect(ids).not.toContain(deletedButAttached.id);
+
+      const missingBank = await request(app)
+        .get(`/api/admin/banks/${randomUUID()}/loan-types`)
+        .set("Cookie", cookie);
+      expect(missingBank.status).toBe(404);
+    } finally {
+      await db
+        .delete(bankLoanTypes)
+        .where(
+          and(
+            eq(bankLoanTypes.bankId, bankId),
+            eq(bankLoanTypes.loanTypeId, deletedButAttached.id),
+          ),
+        );
+      await db.delete(loanTypes).where(eq(loanTypes.id, unattached.id));
+      await db.delete(loanTypes).where(eq(loanTypes.id, deletedButAttached.id));
+    }
+  });
 });

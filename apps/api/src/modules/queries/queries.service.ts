@@ -229,7 +229,13 @@ export async function listQueriesForAdmin(
   if (query.from) filters.from = new Date(query.from);
   if (query.to) filters.to = new Date(query.to);
 
-  const rows = await queriesRepo.listQueriesForAdmin(db, filters, query.limit + 1, cursor);
+  const rows = await queriesRepo.listQueriesForAdmin(
+    db,
+    filters,
+    query.limit + 1,
+    cursor,
+    query.sort,
+  );
   const hasMore = rows.length > query.limit;
   const pageRows = hasMore ? rows.slice(0, query.limit) : rows;
   const lastRow = pageRows[pageRows.length - 1];

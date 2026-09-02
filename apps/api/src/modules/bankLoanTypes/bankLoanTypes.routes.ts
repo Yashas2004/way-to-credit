@@ -22,6 +22,19 @@ function parseIds(
   return { bankId: bankId.data, loanTypeId: loanTypeId.data };
 }
 
+bankLoanTypesRouter.get("/:bankId/loan-types", async (req, res, next) => {
+  try {
+    const bankId = uuidParam.safeParse(req.params.bankId);
+    if (!bankId.success) {
+      throw new ValidationError("Invalid bank id.");
+    }
+    const rows = await bankLoanTypesService.listLoanTypesForBank(bankId.data);
+    res.status(200).json(rows);
+  } catch (error) {
+    next(error);
+  }
+});
+
 bankLoanTypesRouter.post("/:bankId/loan-types/:loanTypeId", async (req, res, next) => {
   try {
     const { bankId, loanTypeId } = parseIds(req.params.bankId, req.params.loanTypeId);

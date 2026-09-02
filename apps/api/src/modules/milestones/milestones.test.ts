@@ -24,6 +24,7 @@ interface MilestoneBody {
   title: string;
   message: string;
   isActive: boolean;
+  unlockedCount: number;
 }
 
 const app = createApp();
@@ -61,6 +62,7 @@ describe("admin milestones API", () => {
       .send({ levelNumber: level, pointsRequired: points, title: "Original", message: "msg" });
     expect(create.status).toBe(201);
     const id = (create.body as MilestoneBody).id;
+    expect((create.body as MilestoneBody).unlockedCount).toBe(0);
 
     try {
       const list = await request(app).get("/api/admin/milestones").set("Cookie", adminCookie);
@@ -90,6 +92,46 @@ describe("admin milestones API", () => {
       expect((deactivate.body as MilestoneBody).isActive).toBe(false);
     } finally {
       await db.delete(milestones).where(eq(milestones.id, id));
+    }
+  });
+
+  it("reflects real unlocks in both the list and a single milestone's update response, and never resets them on edit", async () => {
+    const level = freshLevel();
+    const points = 500_000 + level;
+
+    const [milestone] = await db
+      .insert(milestones)
+      .values({
+        levelNumber: level,
+        pointsRequired: points,
+        title: "Unlock count test",
+        message: "m",
+      })
+      .returning();
+    if (!milestone) throw new Error("fixture insert failed");
+
+    const userA = await createTestUser(admin.id);
+    const userB = await createTestUser(admin.id);
+    try {
+      await db.insert(userMilestones).values({ userId: userA.id, milestoneId: milestone.id });
+      await db.insert(userMilestones).values({ userId: userB.id, milestoneId: milestone.id });
+
+      const list = await request(app).get("/api/admin/milestones").set("Cookie", adminCookie);
+      const listed = (list.body as MilestoneBody[]).find((m) => m.id === milestone.id);
+      expect(listed?.unlockedCount).toBe(2);
+
+      // Editing title/message must not reset or touch the count.
+      const update = await request(app)
+        .patch(`/api/admin/milestones/${milestone.id}`)
+        .set("Cookie", adminCookie)
+        .send({ title: "Fixed typo" });
+      expect(update.status).toBe(200);
+      expect((update.body as MilestoneBody).unlockedCount).toBe(2);
+    } finally {
+      await db.delete(userMilestones).where(eq(userMilestones.milestoneId, milestone.id));
+      await db.delete(milestones).where(eq(milestones.id, milestone.id));
+      await deleteTestUser(userA.id);
+      await deleteTestUser(userB.id);
     }
   });
 

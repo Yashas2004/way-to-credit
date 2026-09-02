@@ -1,6 +1,7 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import dotenv from "dotenv";
 import { z } from "zod";
+import { maskDatabaseUrl } from "./maskDatabaseUrl.js";
 import { resolveEnvPath, resolveModuleDir } from "./repoRoot.js";
 
 const envSchema = z.object({
@@ -32,10 +33,22 @@ const isProduction = process.env["NODE_ENV"] === "production";
 let envFilePath: string | undefined;
 let envFileExists = false;
 
+// Captured before dotenv.config() runs — dotenv never overwrites a variable
+// that's already set, so this is the only way to later tell whether the
+// .env file's DATABASE_URL was actually applied or silently discarded. Real
+// incident: VS Code's `python.terminal.useEnvFile` setting was injecting a
+// stale, pre-credential-rename DATABASE_URL into every integrated
+// terminal — dotenv's silent no-clobber then made the correct .env value
+// simply never take effect, with nothing printed to say so. Took an hour to
+// find by elimination; see the warning below and the README's
+// troubleshooting section.
+let preExistingDatabaseUrl: string | undefined;
+
 if (!isProduction) {
   const moduleDir = resolveModuleDir(import.meta.url);
   envFilePath = resolveEnvPath(moduleDir);
   envFileExists = existsSync(envFilePath);
+  preExistingDatabaseUrl = process.env["DATABASE_URL"];
 
   if (envFileExists) {
     dotenv.config({ path: envFilePath });
@@ -64,4 +77,36 @@ function parseEnv() {
 }
 
 export const env = parseEnv();
+
+// This module is the *only* place DATABASE_URL is ever resolved — the real
+// app (via index.ts), db:seed (via db/client.ts), and db:migrate (via
+// drizzle.config.ts importing `env` directly, same as everything else) all
+// go through this exact `parseEnv()` call, so there is no second resolver
+// left to quietly disagree with this one. Logged unconditionally (not
+// routed through lib/logger.ts, which itself imports this module — that
+// would be circular) so a future mismatch between what a script connects to
+// and what's in .env is a one-line diagnosis, not a process of elimination.
+console.log(`[env] DATABASE_URL resolved to: ${maskDatabaseUrl(env.DATABASE_URL)}`);
+
+// dotenv never overwrites a variable that's already present in
+// process.env — so if DATABASE_URL was set before dotenv.config() ran, the
+// .env file's value (assuming it even defines one) was silently discarded
+// in favour of whatever set it first. That silent precedence is exactly
+// what turned a one-line fix into an hour of elimination once already —
+// only in development, since in production there's no .env file and
+// reading straight from the real process environment is correct and
+// expected there.
+if (env.NODE_ENV === "development" && envFileExists && preExistingDatabaseUrl !== undefined) {
+  const fileValues = dotenv.parse(readFileSync(envFilePath ?? "", "utf8"));
+  const fileDatabaseUrl = fileValues["DATABASE_URL"];
+  if (fileDatabaseUrl !== undefined) {
+    console.warn(
+      `[env] WARNING: DATABASE_URL was already set in the environment before .env was loaded, so the .env file's value was ignored (dotenv never overwrites an existing variable).\n` +
+        `  Using (pre-existing environment variable): ${maskDatabaseUrl(preExistingDatabaseUrl)}\n` +
+        `  Ignored (from ${envFilePath ?? "(unresolved)"}): ${maskDatabaseUrl(fileDatabaseUrl)}\n` +
+        `  Find and remove whatever is setting DATABASE_URL before this process starts — a shell profile, a real OS environment variable, or (on Windows, with VS Code's Python extension installed) the "python.terminal.useEnvFile" setting injecting a cached .env into every integrated terminal.`,
+    );
+  }
+}
+
 export type Env = typeof env;

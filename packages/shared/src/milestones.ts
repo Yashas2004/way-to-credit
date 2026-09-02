@@ -27,5 +27,7 @@ export const MilestoneResponseSchema = z.object({
   isActive: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),
+  /** How many users have unlocked this milestone — editing title/message/points never changes this. */
+  unlockedCount: z.number().int(),
 });
 export type MilestoneResponse = z.infer<typeof MilestoneResponseSchema>;

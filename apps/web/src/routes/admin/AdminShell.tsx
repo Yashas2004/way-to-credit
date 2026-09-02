@@ -8,7 +8,7 @@ import { IdentityMenu } from "../IdentityMenu";
 
 const NAV_ITEMS = [
   { to: "/admin", label: "Dashboard", end: true },
-  { to: "/admin/knowledge-base", label: "Knowledge Base", end: false },
+  { to: "/admin/knowledge", label: "Knowledge Base", end: false },
   { to: "/admin/users", label: "Users", end: false },
   { to: "/admin/queries", label: "Queries", end: false },
   { to: "/admin/milestones", label: "Milestones", end: false },

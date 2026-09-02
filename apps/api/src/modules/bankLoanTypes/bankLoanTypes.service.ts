@@ -101,3 +101,11 @@ export async function detachLoanType(
 
   await invalidateDescriptionTreeCache();
 }
+
+export async function listLoanTypesForBank(bankId: string) {
+  const bank = await banksRepo.findBankById(db, bankId);
+  if (!bank || bank.deletedAt) {
+    throw new NotFoundError("Bank not found.");
+  }
+  return bankLoanTypesRepo.listLoanTypesForBank(db, bankId);
+}

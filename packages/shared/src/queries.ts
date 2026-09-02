@@ -66,6 +66,8 @@ export const AdminListQueriesQuerySchema = z.object({
   to: z.string().datetime().optional(),
   limit: z.coerce.number().int().min(1).max(50).optional().default(20),
   cursor: z.string().optional(),
+  /** "desc" (newest first) is the query inbox's own default and what every cursor was built for; "asc" is for an unpaginated first-page read only (e.g. the dashboard's oldest-pending widget). */
+  sort: z.enum(["asc", "desc"]).optional().default("desc"),
 });
 export type AdminListQueriesQuery = z.infer<typeof AdminListQueriesQuerySchema>;
 

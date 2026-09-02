@@ -4,13 +4,18 @@ import { Spinner } from "./components/Spinner";
 import { ToastProvider } from "./components/Toast";
 import { AuthProvider, useAuth } from "./lib/auth";
 import { queryClient } from "./lib/queryClient";
+import { ActivityPage } from "./routes/admin/ActivityPage";
 import { AdminShell } from "./routes/admin/AdminShell";
+import { DashboardPage } from "./routes/admin/DashboardPage";
+import { KnowledgeBasePage } from "./routes/admin/KnowledgeBasePage";
+import { MilestonesPage } from "./routes/admin/MilestonesPage";
+import { QueriesPage } from "./routes/admin/QueriesPage";
+import { UsersPage } from "./routes/admin/UsersPage";
 import { ForbiddenPage } from "./routes/ForbiddenPage";
 import { AdminGuard, UserGuard } from "./routes/guards/RoleGuard";
 import { LoginPage } from "./routes/LoginPage";
 import { NotFoundPage } from "./routes/NotFoundPage";
 import { OutsideWindowPage } from "./routes/OutsideWindowPage";
-import { PlaceholderPage } from "./routes/PlaceholderPage";
 import { LandingPage } from "./routes/user/LandingPage";
 import { MyQueriesPage } from "./routes/user/MyQueriesPage";
 import { RewardsPage } from "./routes/user/RewardsPage";
@@ -48,15 +53,12 @@ export function App() {
 
               <Route element={<AdminGuard />}>
                 <Route path="/admin" element={<AdminShell />}>
-                  <Route index element={<PlaceholderPage title="Dashboard" />} />
-                  <Route
-                    path="knowledge-base"
-                    element={<PlaceholderPage title="Knowledge Base" />}
-                  />
-                  <Route path="users" element={<PlaceholderPage title="Users" />} />
-                  <Route path="queries" element={<PlaceholderPage title="Queries" />} />
-                  <Route path="milestones" element={<PlaceholderPage title="Milestones" />} />
-                  <Route path="activity" element={<PlaceholderPage title="Activity" />} />
+                  <Route index element={<DashboardPage />} />
+                  <Route path="knowledge" element={<KnowledgeBasePage />} />
+                  <Route path="users" element={<UsersPage />} />
+                  <Route path="queries" element={<QueriesPage />} />
+                  <Route path="milestones" element={<MilestonesPage />} />
+                  <Route path="activity" element={<ActivityPage />} />
                 </Route>
               </Route>
 
