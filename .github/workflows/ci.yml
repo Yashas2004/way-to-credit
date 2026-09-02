@@ -47,13 +47,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Install Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version-file: ".nvmrc"
           cache: "pnpm"
@@ -66,6 +66,28 @@ jobs:
 
       - name: Lint
         run: pnpm lint
+
+      # The postgres service's healthcheck passing only means pg_isready
+      # succeeded *inside* the container — not that the host-mapped port is
+      # accepting connections yet, and drizzle-kit has no retry logic of its
+      # own. Retry the migration itself (a real query, the strongest
+      # readiness signal there is) rather than trust the healthcheck alone.
+      - name: Wait for Postgres and run migrations
+        run: |
+          for i in $(seq 1 30); do
+            if pnpm db:migrate; then
+              echo "Migrations applied (attempt $i)."
+              exit 0
+            fi
+            echo "Postgres not ready yet (attempt $i/30) — retrying in 2s..."
+            sleep 2
+          done
+          echo "::error::Postgres never accepted a connection after 30 attempts."
+          exit 1
+
+      # No test seeds or depends on seeded fixture data (every test builds
+      # its own via createTestAdmin/createTestUser-style helpers) — running
+      # db:seed here would just be unused work, not a test dependency.
 
       - name: Test
         run: pnpm test
