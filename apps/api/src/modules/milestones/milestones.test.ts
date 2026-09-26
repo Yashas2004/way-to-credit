@@ -27,6 +27,10 @@ interface MilestoneBody {
   unlockedCount: number;
 }
 
+interface ErrorBody {
+  error: { code: string; message: string };
+}
+
 const app = createApp();
 
 // A unique level-number range for this whole file, distinct from the
@@ -135,7 +139,7 @@ describe("admin milestones API", () => {
     }
   });
 
-  it("rejects a pointsRequired collision on create and on update", async () => {
+  it("rejects a pointsRequired or levelNumber collision, naming which field collided", async () => {
     const levelA = freshLevel();
     const pointsA = 200_000 + levelA;
     const levelB = freshLevel();
@@ -161,12 +165,29 @@ describe("admin milestones API", () => {
         .set("Cookie", adminCookie)
         .send({ levelNumber: freshLevel(), pointsRequired: pointsA, title: "C", message: "m" });
       expect(collideOnCreate.status).toBe(409);
+      // Regression: the message used to say "level X or Y points" for
+      // either collision, never telling the admin which field to change.
+      expect((collideOnCreate.body as ErrorBody).error.message).toContain(
+        `already requires ${String(pointsA)} points`,
+      );
+
+      const collideOnLevel = await request(app)
+        .post("/api/admin/milestones")
+        .set("Cookie", adminCookie)
+        .send({ levelNumber: levelA, pointsRequired: 300_000 + levelA, title: "D", message: "m" });
+      expect(collideOnLevel.status).toBe(409);
+      expect((collideOnLevel.body as ErrorBody).error.message).toContain(
+        `milestone for level ${String(levelA)} already exists`,
+      );
 
       const collideOnUpdate = await request(app)
         .patch(`/api/admin/milestones/${idB}`)
         .set("Cookie", adminCookie)
         .send({ pointsRequired: pointsA });
       expect(collideOnUpdate.status).toBe(409);
+      expect((collideOnUpdate.body as ErrorBody).error.message).toContain(
+        `already requires ${String(pointsA)} points`,
+      );
     } finally {
       await db.delete(milestones).where(eq(milestones.id, idA));
       await db.delete(milestones).where(eq(milestones.id, idB));

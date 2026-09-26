@@ -3,6 +3,7 @@ import type { MilestoneResponse } from "@way-to-credit/shared";
 import { useState } from "react";
 import { Button } from "../../components/Button";
 import { Input } from "../../components/Input";
+import { IntegerInput } from "../../components/IntegerInput";
 import { Modal } from "../../components/Modal";
 import { Textarea } from "../../components/Textarea";
 import { useToast } from "../../components/Toast";
@@ -12,7 +13,12 @@ import { createMilestone, updateMilestone } from "../../lib/adminApi";
 export interface MilestoneFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  /** Undefined for create; a milestone for edit — its `levelNumber` is immutable, matching the backend. */
+  /**
+   * Undefined for create; a milestone for edit — its `levelNumber` is
+   * immutable, matching the backend. Fields are seeded from this once, on
+   * mount: callers must mount this only while open and `key` it by
+   * milestone id, or a reopen shows the previous form's values.
+   */
   milestone?: MilestoneResponse;
 }
 
@@ -99,23 +105,17 @@ export function MilestoneFormModal({ isOpen, onClose, milestone }: MilestoneForm
         )}
 
         <div className="grid grid-cols-2 gap-3">
-          <Input
+          <IntegerInput
             label="Level number"
-            type="number"
             value={levelNumber}
-            onChange={(e) => {
-              setLevelNumber(e.target.value);
-            }}
+            onValueChange={setLevelNumber}
             disabled={submitting || isEdit}
             {...(isEdit ? { hint: "Can't be changed after creation." } : {})}
           />
-          <Input
+          <IntegerInput
             label="Points required"
-            type="number"
             value={pointsRequired}
-            onChange={(e) => {
-              setPointsRequired(e.target.value);
-            }}
+            onValueChange={setPointsRequired}
             disabled={submitting}
           />
         </div>

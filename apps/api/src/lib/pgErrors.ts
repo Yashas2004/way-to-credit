@@ -23,6 +23,20 @@ function getPgErrorCode(error: unknown, depth = 0): string | undefined {
   return undefined;
 }
 
+/** The violated constraint's name (pg's `.constraint`), walking the same DrizzleQueryError cause chain as the SQLSTATE check. */
+export function getViolatedConstraint(error: unknown, depth = 0): string | undefined {
+  if (depth > 5 || typeof error !== "object" || error === null) {
+    return undefined;
+  }
+  if ("constraint" in error && typeof (error as { constraint?: unknown }).constraint === "string") {
+    return (error as { constraint: string }).constraint;
+  }
+  if ("cause" in error) {
+    return getViolatedConstraint((error as { cause?: unknown }).cause, depth + 1);
+  }
+  return undefined;
+}
+
 export function isUniqueViolationError(error: unknown): boolean {
   return getPgErrorCode(error) === UNIQUE_VIOLATION_SQLSTATE;
 }

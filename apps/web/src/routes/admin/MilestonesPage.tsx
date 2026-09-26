@@ -159,13 +159,20 @@ export function MilestonesPage() {
           </Table>
         ))}
 
-      <MilestoneFormModal
-        isOpen={formOpen}
-        {...(editingMilestone ? { milestone: editingMilestone } : {})}
-        onClose={() => {
-          setFormOpen(false);
-        }}
-      />
+      {/* Mounted only while open and keyed by milestone — the form seeds its
+          fields once on mount, so a single always-mounted instance showed
+          stale values (a blank Edit, or a Create pre-filled with whatever
+          was last edited). */}
+      {formOpen && (
+        <MilestoneFormModal
+          key={editingMilestone?.id ?? "new"}
+          isOpen
+          {...(editingMilestone ? { milestone: editingMilestone } : {})}
+          onClose={() => {
+            setFormOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

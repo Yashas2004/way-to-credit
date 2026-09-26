@@ -6,7 +6,7 @@ import type {
 import { db } from "../../db/client.js";
 import { recordAudit } from "../../lib/audit.js";
 import { ConflictError, NotFoundError } from "../../lib/errors.js";
-import { isUniqueViolationError } from "../../lib/pgErrors.js";
+import { getViolatedConstraint, isUniqueViolationError } from "../../lib/pgErrors.js";
 import * as milestonesRepo from "./milestones.repo.js";
 
 const ENTITY_TYPE = "milestones";
@@ -26,6 +26,28 @@ function toMilestoneResponse(
     updatedAt: row.updatedAt.toISOString(),
     unlockedCount,
   };
+}
+
+const LEVEL_NUMBER_UNIQUE = "milestones_level_number_unique";
+const POINTS_REQUIRED_UNIQUE = "milestones_points_required_unique";
+
+/**
+ * Both columns are UNIQUE, so the old single "level X or Y points already
+ * exists" message never told the admin which field to change. The violated
+ * constraint's name says exactly which one collided.
+ */
+function duplicateMilestoneMessage(
+  error: unknown,
+  input: { levelNumber?: number | undefined; pointsRequired?: number | undefined },
+): string {
+  const constraint = getViolatedConstraint(error);
+  if (constraint === LEVEL_NUMBER_UNIQUE && input.levelNumber !== undefined) {
+    return `A milestone for level ${String(input.levelNumber)} already exists — choose a different level.`;
+  }
+  if (constraint === POINTS_REQUIRED_UNIQUE && input.pointsRequired !== undefined) {
+    return `Another milestone already requires ${String(input.pointsRequired)} points — choose a different points value.`;
+  }
+  return "A milestone with this level or points value already exists.";
 }
 
 export async function createMilestone(
@@ -48,9 +70,7 @@ export async function createMilestone(
     });
   } catch (error) {
     if (isUniqueViolationError(error)) {
-      throw new ConflictError(
-        `A milestone with level ${String(input.levelNumber)} or ${String(input.pointsRequired)} points already exists.`,
-      );
+      throw new ConflictError(duplicateMilestoneMessage(error, input));
     }
     throw error;
   }
@@ -101,9 +121,7 @@ export async function updateMilestone(
     });
   } catch (error) {
     if (isUniqueViolationError(error)) {
-      throw new ConflictError(
-        `A milestone requiring ${String(input.pointsRequired ?? "")} points already exists.`,
-      );
+      throw new ConflictError(duplicateMilestoneMessage(error, input));
     }
     throw error;
   }
