@@ -153,6 +153,43 @@ describe("admin queries API — approve/reject", () => {
     expect(txRows).toHaveLength(1);
   });
 
+  it("concurrent approve and reject: exactly one wins, the other gets ALREADY_RESOLVED, credits match the winner", async () => {
+    const queryId = await raiseQueryAs(userCookie);
+    const [before] = await db
+      .select({ cp: users.creditPoints })
+      .from(users)
+      .where(eq(users.id, user.id));
+
+    const [approveRes, rejectRes] = await Promise.all([
+      request(app).post(`/api/admin/queries/${queryId}/approve`).set("Cookie", adminCookie),
+      request(app).post(`/api/admin/queries/${queryId}/reject`).set("Cookie", adminCookie),
+    ]);
+
+    expect([approveRes.status, rejectRes.status].sort()).toEqual([200, 409]);
+    const loser = approveRes.status === 409 ? approveRes : rejectRes;
+    expect((loser.body as ErrorBody).error.code).toBe("ALREADY_RESOLVED");
+
+    const [row] = await db.select().from(queries).where(eq(queries.id, queryId));
+    const [after] = await db
+      .select({ cp: users.creditPoints })
+      .from(users)
+      .where(eq(users.id, user.id));
+    const ledger = await db
+      .select()
+      .from(creditTransactions)
+      .where(eq(creditTransactions.queryId, queryId));
+
+    if (approveRes.status === 200) {
+      expect(row?.status).toBe("approved");
+      expect(after?.cp).toBe((before?.cp ?? 0) + 1);
+      expect(ledger).toHaveLength(1);
+    } else {
+      expect(row?.status).toBe("rejected");
+      expect(after?.cp).toBe(before?.cp);
+      expect(ledger).toHaveLength(0);
+    }
+  });
+
   it("approving an already-approved query returns 409 and does not move credits", async () => {
     const queryId = await raiseQueryAs(userCookie);
 
