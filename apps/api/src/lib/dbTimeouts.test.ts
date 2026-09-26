@@ -17,6 +17,40 @@ async function captureError(fn: () => Promise<unknown>): Promise<unknown> {
 }
 
 describe("database timeouts", () => {
+  // The per-connection SET used to run from an on("connect") listener,
+  // concurrently with the caller's first query on that connection, which pg
+  // deprecates (removed in pg@9). onConnect is awaited first instead.
+  it("sets up a new connection without overlapping queries on it", async () => {
+    const warnings: string[] = [];
+    const onWarning = (w: Error) => warnings.push(w.message);
+    process.on("warning", onWarning);
+    const fresh = createPool({ max: 1 });
+    try {
+      const result = await fresh.query<{ statement_timeout: string }>("SHOW statement_timeout");
+      expect(result.rows[0]?.statement_timeout).toBe("5s");
+      await new Promise((r) => setTimeout(r, 50)); // warnings are emitted on nextTick
+      expect(warnings.filter((m) => m.includes("already executing a query"))).toEqual([]);
+    } finally {
+      process.off("warning", onWarning);
+      await fresh.end();
+    }
+  });
+
+  it("fails the checkout, rather than handing out an unlimited connection, if the setup SET fails", async () => {
+    const broken = createPool({
+      max: 1,
+      // eslint-disable-next-line @typescript-eslint/no-misused-promises -- pg-pool awaits onConnect (see db.ts)
+      onConnect: async (client) => {
+        await client.query("SET statement_timeout = 'not-a-duration'");
+      },
+    });
+    try {
+      await expect(broken.query("SELECT 1")).rejects.toThrow();
+    } finally {
+      await broken.end();
+    }
+  });
+
   it("applies statement_timeout and idle_in_transaction_session_timeout to every pool connection", async () => {
     const client = await pool.connect();
     try {
