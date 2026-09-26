@@ -45,10 +45,15 @@ export function QueriesPage() {
 
   const from = fromDate ? istDayRangeUtc(fromDate).fromUtc : undefined;
   const to = toDate ? istDayRangeUtc(toDate).toUtc : undefined;
+  // `YYYY-MM-DD` strings compare correctly as strings. An inverted range used
+  // to be sent anyway and came back as a silent, misleading empty list.
+  const dateRangeInvalid = Boolean(fromDate && toDate && fromDate > toDate);
+  const hasNarrowingFilters = Boolean(userId || fromDate || toDate);
 
   const queryKey = ["admin", "queries", "inbox", status, userId, from, to] as const;
 
   const listQuery = useInfiniteQuery({
+    enabled: !dateRangeInvalid,
     queryKey,
     queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
       fetchAdminQueries({
@@ -159,7 +164,13 @@ export function QueriesPage() {
         </label>
       </div>
 
-      {listQuery.isPending && (
+      {dateRangeInvalid && (
+        <p role="alert" className="text-body text-alert">
+          The From date is after the To date — adjust the range to see results.
+        </p>
+      )}
+
+      {listQuery.isLoading && (
         <div className="flex justify-center py-16">
           <Spinner size="lg" label="Loading queries" />
         </div>
@@ -177,10 +188,17 @@ export function QueriesPage() {
       )}
 
       {listQuery.isSuccess && items.length === 0 && (
+        // "Caught up" only when nothing narrows the pending view — with a
+        // user or date filter applied, an empty result says nothing about
+        // whether other pending queries exist.
         <EmptyState
-          title={status === "pending" ? "You're caught up" : "No queries match these filters"}
+          title={
+            status === "pending" && !hasNarrowingFilters
+              ? "You're caught up"
+              : "No queries match these filters"
+          }
           description={
-            status === "pending"
+            status === "pending" && !hasNarrowingFilters
               ? "There are no pending queries right now."
               : "Try a different status, user, or date range."
           }

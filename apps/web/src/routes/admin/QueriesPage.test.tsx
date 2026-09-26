@@ -134,4 +134,38 @@ describe("QueriesPage", () => {
       expect(mockFetchAdminQueries).toHaveBeenCalledTimes(2);
     });
   });
+
+  // Regression: an inverted range was sent anyway and came back as a silent
+  // empty list — or worse, as "You're caught up".
+  it("explains an inverted date range instead of fetching a misleading empty list", async () => {
+    mockFetchUsers.mockResolvedValue([]);
+    mockFetchAdminQueries.mockResolvedValue({ items: [], nextCursor: null });
+
+    renderPage();
+    await screen.findByText("You're caught up");
+    const callsBefore = mockFetchAdminQueries.mock.calls.length;
+
+    fireEvent.change(screen.getByLabelText("From"), { target: { value: "2026-02-10" } });
+    fireEvent.change(screen.getByLabelText("To"), { target: { value: "2026-02-01" } });
+
+    expect(
+      await screen.findByText(
+        "The From date is after the To date — adjust the range to see results.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("You're caught up")).not.toBeInTheDocument();
+    // Only the From-only change may fetch; the inverted range must not.
+    expect(mockFetchAdminQueries.mock.calls.length).toBeLessThanOrEqual(callsBefore + 1);
+  });
+
+  it("doesn't claim 'caught up' when a filter is narrowing the pending view", async () => {
+    mockFetchUsers.mockResolvedValue([]);
+    mockFetchAdminQueries.mockResolvedValue({ items: [], nextCursor: null });
+
+    renderPage();
+    await screen.findByText("You're caught up");
+
+    fireEvent.change(screen.getByLabelText("From"), { target: { value: "2026-02-10" } });
+    expect(await screen.findByText("No queries match these filters")).toBeInTheDocument();
+  });
 });

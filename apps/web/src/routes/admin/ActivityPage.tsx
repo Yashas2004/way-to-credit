@@ -114,8 +114,10 @@ function ActivityLogSection() {
 
   const from = fromDate ? istDayRangeUtc(fromDate).fromUtc : undefined;
   const to = toDate ? istDayRangeUtc(toDate).toUtc : undefined;
+  const dateRangeInvalid = Boolean(fromDate && toDate && fromDate > toDate);
 
   const logQuery = useInfiniteQuery({
+    enabled: !dateRangeInvalid,
     queryKey: ["admin", "activity", "log", actorId, from, to],
     queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
       fetchActivityLog({
@@ -143,7 +145,7 @@ function ActivityLogSection() {
           onChange={(e) => {
             setActorId(e.target.value);
           }}
-          placeholder="All users and admins"
+          placeholder="Everyone (users and admins)"
           options={userOptions}
         />
         <label className="flex flex-col gap-1.5">
@@ -170,7 +172,12 @@ function ActivityLogSection() {
         </label>
       </div>
 
-      {logQuery.isPending && (
+      {dateRangeInvalid && (
+        <p role="alert" className="text-body text-alert">
+          The From date is after the To date — adjust the range to see results.
+        </p>
+      )}
+      {logQuery.isLoading && (
         <div className="flex justify-center py-8">
           <Spinner label="Loading activity" />
         </div>
