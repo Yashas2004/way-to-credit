@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { NavLink, Outlet } from "react-router-dom";
 import { IstClock } from "../../components/IstClock";
 import { useAuth } from "../../lib/auth";
+import { useDensity } from "../../lib/useDensity";
 import { useFocusTrap } from "../../lib/useFocusTrap";
 import { IdentityMenu } from "../IdentityMenu";
 
@@ -25,6 +26,7 @@ const NAV_ITEMS = [
 export function AdminShell() {
   const { identity } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  useDensity("compact");
 
   return (
     <div className="min-h-screen bg-canvas">

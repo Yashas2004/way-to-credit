@@ -210,7 +210,9 @@ export function RewardsCertificate({
                     )}
                   </div>
 
-                  {unlocked && <p className="mt-1.5 text-body text-muted">{milestone.message}</p>}
+                  {unlocked && (
+                    <p className="mt-1.5 max-w-[66ch] text-body text-muted">{milestone.message}</p>
+                  )}
 
                   {!unlocked && isHero && (
                     <div className="mt-3 max-w-xs">

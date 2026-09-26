@@ -137,6 +137,7 @@ export function MilestonesPage() {
                     <div className="flex items-center gap-1.5">
                       <Button
                         variant="ghost"
+                        size="sm"
                         onClick={() => {
                           openEdit(m);
                         }}
@@ -145,6 +146,7 @@ export function MilestonesPage() {
                       </Button>
                       <Button
                         variant="ghost"
+                        size="sm"
                         className={m.isActive ? "text-negative" : ""}
                         loading={pendingId === m.id}
                         onClick={() => void handleToggleActive(m)}

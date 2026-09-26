@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { IstClock } from "../../components/IstClock";
 import { useAuth } from "../../lib/auth";
+import { useDensity } from "../../lib/useDensity";
 import { IdentityMenu } from "../IdentityMenu";
 
 const NAV_ITEMS = [
@@ -16,6 +17,7 @@ const NAV_ITEMS = [
  */
 export function UserShell() {
   const { identity } = useAuth();
+  useDensity("comfortable");
 
   return (
     <div className="min-h-screen bg-canvas">

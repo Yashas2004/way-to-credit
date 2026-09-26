@@ -188,7 +188,7 @@ export function WorkspacePage() {
               </div>
             ) : (
               <div className="flex flex-col items-start gap-4">
-                <p className="whitespace-pre-wrap text-body-lg text-ink">
+                <p className="max-w-[66ch] whitespace-pre-wrap text-body-lg text-ink">
                   {descriptionQuery.data.body}
                 </p>
                 <Button

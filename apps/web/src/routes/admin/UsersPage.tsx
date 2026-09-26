@@ -138,6 +138,7 @@ export function UsersPage() {
                     <div className="flex flex-wrap items-center gap-1.5">
                       <Button
                         variant="ghost"
+                        size="sm"
                         onClick={() => {
                           setCreditAdjustUser(user);
                         }}
@@ -146,6 +147,7 @@ export function UsersPage() {
                       </Button>
                       <Button
                         variant="ghost"
+                        size="sm"
                         onClick={() => {
                           setResetPasswordUser(user);
                         }}
@@ -155,6 +157,7 @@ export function UsersPage() {
                       {user.isActive ? (
                         <Button
                           variant="ghost"
+                          size="sm"
                           className="text-negative"
                           onClick={() => {
                             setDeactivateUserRow(user);
@@ -165,6 +168,7 @@ export function UsersPage() {
                       ) : (
                         <Button
                           variant="ghost"
+                          size="sm"
                           loading={pendingReactivateId === user.id}
                           onClick={() => void handleReactivate(user.id)}
                         >

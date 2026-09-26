@@ -58,14 +58,18 @@ export default {
       sans: ['"IBM Plex Sans"', "system-ui", "sans-serif"],
       serif: ['"IBM Plex Serif"', "Georgia", "serif"],
     },
+    // Two densities, one scale: each token reads CSS variables set in
+    // index.css. Admin screens (html.density-compact) stay dense for tables;
+    // user screens and the login/error pages (the default, comfortable) are
+    // more generous. Shared components scale by context with no duplication.
     fontSize: {
-      small: ["0.75rem", { lineHeight: "1.4" }],
-      body: ["0.875rem", { lineHeight: "1.55" }],
-      "body-lg": ["1rem", { lineHeight: "1.6" }],
-      h3: ["0.8125rem", { lineHeight: "1.3", letterSpacing: "0.01em" }],
-      h2: ["1.125rem", { lineHeight: "1.35" }],
-      h1: ["1.5rem", { lineHeight: "1.3" }],
-      display: ["2rem", { lineHeight: "1.2" }],
+      small: ["var(--fs-small)", { lineHeight: "var(--lh-small)" }],
+      body: ["var(--fs-body)", { lineHeight: "var(--lh-body)" }],
+      "body-lg": ["var(--fs-body-lg)", { lineHeight: "var(--lh-body-lg)" }],
+      h3: ["var(--fs-h3)", { lineHeight: "var(--lh-h3)", letterSpacing: "0.01em" }],
+      h2: ["var(--fs-h2)", { lineHeight: "var(--lh-h2)" }],
+      h1: ["var(--fs-h1)", { lineHeight: "var(--lh-h1)" }],
+      display: ["var(--fs-display)", { lineHeight: "var(--lh-display)" }],
     },
     borderRadius: {
       none: "0px",

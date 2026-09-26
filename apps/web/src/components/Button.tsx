@@ -5,6 +5,8 @@ export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
+  /** `sm` is for actions inside table rows, where the button, not the text, sets the row height. */
+  size?: "md" | "sm";
   loading?: boolean;
 }
 
@@ -17,7 +19,15 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
 
 /** Loading state keeps the button's width/label slot occupied (an invisible copy of the label) rather than collapsing around the spinner. */
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = "primary", loading = false, disabled, className = "", children, ...rest },
+  {
+    variant = "primary",
+    size = "md",
+    loading = false,
+    disabled,
+    className = "",
+    children,
+    ...rest
+  },
   ref,
 ) {
   return (
@@ -26,7 +36,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       type={rest.type ?? "button"}
       disabled={disabled ?? loading}
       aria-busy={loading || undefined}
-      className={`relative inline-flex items-center justify-center gap-2 rounded-sm px-4 py-2 text-body font-medium transition-colors disabled:cursor-not-allowed motion-reduce:transition-none ${VARIANT_CLASSES[variant]} ${className}`}
+      className={`relative inline-flex items-center justify-center gap-2 rounded-sm ${size === "sm" ? "px-2.5 py-1" : "px-4 py-2"} text-body font-medium transition-colors disabled:cursor-not-allowed motion-reduce:transition-none ${VARIANT_CLASSES[variant]} ${className}`}
       {...rest}
     >
       {loading && (

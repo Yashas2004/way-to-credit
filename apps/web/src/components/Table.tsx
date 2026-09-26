@@ -75,7 +75,7 @@ export function TableCell({
   ...rest
 }: TdHTMLAttributes<HTMLTableCellElement>) {
   return (
-    <td className={`px-3 py-2.5 text-ink ${className}`} {...rest}>
+    <td className={`px-3 py-2 text-ink ${className}`} {...rest}>
       {children}
     </td>
   );
