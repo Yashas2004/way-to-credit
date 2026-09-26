@@ -2,13 +2,13 @@
 export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
-    // Deliberately replacing (not extending) colors/fontFamily/borderRadius �
+    // Deliberately replacing (not extending) colors/fontFamily/borderRadius —
     // this app draws from a fixed palette and a hierarchy-coded radius
     // system, not Tailwind's defaults plus a few extras.
     //
     // Tokens are named for their ROLE, not their colour, so the next rebrand
     // edits this block rather than every className. Every value derives from
-    // the logo's cyan (#00A2D0, hue 193�). Contrast figures are WCAG 2.x,
+    // the logo's cyan (#00A2D0, hue 193°). Contrast figures are WCAG 2.x,
     // computed, not estimated.
     colors: {
       transparent: "transparent",
@@ -16,7 +16,7 @@ export default {
       white: "#ffffff",
       black: "#000000",
       // Admin sidebar, login panel, seal wax. The brand hue desaturated and
-      // darkened � visibly petrol, not a tinted black � so the cyan mark sits
+      // darkened — visibly petrol, not a tinted black — so the cyan mark sits
       // on its own shadow. Canvas text on it 11.88:1; brand cyan on it 4.59:1.
       deep: "#11323B",
       // Hover/active rows on `deep`. Canvas text on it 9.33:1.
@@ -30,13 +30,13 @@ export default {
       ink: "#122226",
       // Secondary text, borders, neutral/in-progress status. 5.52:1 on canvas.
       muted: "#4F6369",
-      // THE CYAN RULE. `brand` is 2.59:1 on canvas and 2.97:1 on white � it
+      // THE CYAN RULE. `brand` is 2.59:1 on canvas and 2.97:1 on white — it
       // fails AA for text, and the 3:1 non-text minimum, on light surfaces.
-      // White text on it is 2.97:1 � also a fail. So:
+      // White text on it is 2.97:1 — also a fail. So:
       //  - `brand` is a FILL that takes `ink` text (5.52:1): primary buttons,
       //    active tabs, progress fills, seal emblems, the logo.
-      //  - On light surfaces anything thin � text, links, focus rings,
-      //    underlines, 1�2px indicators � uses `brand-ink`, never `brand`.
+      //  - On light surfaces anything thin — text, links, focus rings,
+      //    underlines, 1–2px indicators — uses `brand-ink`, never `brand`.
       //  - On `deep`, `brand` is fine for marks, dots and the active nav
       //    indicator (4.59:1).
       // What cyan means: yours, live, earned. One primary action per screen.
@@ -46,12 +46,12 @@ export default {
       "brand-ink": "#007494",
       // Status colours: deliberately NOT brand, and always paired with an
       // icon + label + ordinal, never colour alone. Each passes 4.5:1 as
-      // text on its own badge tint (10�12%) over canvas as well as white.
-      // Success (hue 135�, pushed yellow-green so it can't read as teal).
+      // text on its own badge tint (10–12%) over canvas as well as white.
+      // Success (hue 135°, pushed yellow-green so it can't read as teal).
       positive: "#2C6F3D",
-      // Needs action (hue 35�).
+      // Needs action (hue 35°).
       attention: "#8B5100",
-      // Negative / terminal (hue 6�). White text on it 6.14:1.
+      // Negative / terminal (hue 6°). White text on it 6.14:1.
       negative: "#AE392D",
     },
     fontFamily: {
@@ -69,12 +69,12 @@ export default {
     },
     borderRadius: {
       none: "0px",
-      // Small interactive elements — inputs, buttons, square badges. Crisp,
+      // Small interactive elements â€” inputs, buttons, square badges. Crisp,
       // form-like, not the soft-everywhere look this app is deliberately avoiding.
       sm: "4px",
-      // True containers — modals, panels.
+      // True containers â€” modals, panels.
       md: "8px",
-      // Status pills/tags only — a pill shape conventionally signals
+      // Status pills/tags only â€” a pill shape conventionally signals
       // "tag/state," so it's reserved for exactly that, not used generally.
       full: "9999px",
     },
@@ -82,7 +82,7 @@ export default {
       none: "none",
       // The ONE shadow token in the app, reserved for things that actually
       // float above the page (modals, dropdowns, toasts, the mobile drawer).
-      // No default "card" shadow exists — content sections sit directly on
+      // No default "card" shadow exists â€” content sections sit directly on
       // canvas with hairline dividers, not shadowed white cards.
       elevated: "0 8px 24px -4px rgba(18, 34, 38, 0.18)",
     },
