@@ -42,6 +42,47 @@ export async function invalidateDescriptionTreeCache(): Promise<void> {
   }
 }
 
+/**
+ * Single-flight: concurrent misses for the same version share one rebuild
+ * instead of each running their own. Measured before this existed: 300
+ * concurrent misses ran 300 rebuilds and starved the 10-connection pool
+ * for ~5s, so every other request (each auth check is 2 queries) waited
+ * too. Per instance — N instances rebuild at most N times, which is fine.
+ * The entry is removed when the rebuild settles, so a failed rebuild is
+ * never cached: its waiters see the error and the next request retries.
+ * Key "db" is the Redis-down path, where there's no version to key on.
+ */
+const inflightRebuilds = new Map<string, Promise<DescriptionTreeBank[]>>();
+
+function rebuildOnce(version: string | undefined): Promise<DescriptionTreeBank[]> {
+  const key = version ?? "db";
+  let rebuild = inflightRebuilds.get(key);
+  if (!rebuild) {
+    rebuild = rebuildAndPopulate(version).finally(() => {
+      inflightRebuilds.delete(key);
+    });
+    inflightRebuilds.set(key, rebuild);
+  }
+  return rebuild;
+}
+
+async function rebuildAndPopulate(version: string | undefined): Promise<DescriptionTreeBank[]> {
+  const tree = await buildDescriptionTree(db);
+
+  if (version !== undefined) {
+    try {
+      await redis.set(`${TREE_KEY_PREFIX}${version}`, JSON.stringify(tree), "EX", TREE_TTL_SECONDS);
+    } catch (error) {
+      logger.warn(
+        { err: error },
+        "Redis unavailable; could not populate the description tree cache",
+      );
+    }
+  }
+
+  return tree;
+}
+
 export async function getDescriptionTree(): Promise<DescriptionTreeBank[]> {
   let version: string | undefined;
 
@@ -58,18 +99,5 @@ export async function getDescriptionTree(): Promise<DescriptionTreeBank[]> {
     );
   }
 
-  const tree = await buildDescriptionTree(db);
-
-  if (version !== undefined) {
-    try {
-      await redis.set(`${TREE_KEY_PREFIX}${version}`, JSON.stringify(tree), "EX", TREE_TTL_SECONDS);
-    } catch (error) {
-      logger.warn(
-        { err: error },
-        "Redis unavailable; could not populate the description tree cache",
-      );
-    }
-  }
-
-  return tree;
+  return rebuildOnce(version);
 }
