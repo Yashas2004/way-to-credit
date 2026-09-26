@@ -1,6 +1,6 @@
 import { createApp } from "./app.js";
 import { env } from "./config/env.js";
-import { closeDb } from "./lib/db.js";
+import { closeDb, effectiveStatementTimeoutMs } from "./lib/db.js";
 import { logger } from "./lib/logger.js";
 import { closeRedis } from "./lib/redis.js";
 import { startSessionRetentionSchedule } from "./modules/auth/sessionRetention.service.js";
@@ -30,6 +30,21 @@ const server = app.listen(env.PORT, () => {
 });
 
 const stopSessionRetention = startSessionRetentionSchedule();
+
+// Behind a transaction-mode pooler the per-connection SET in lib/db.ts isn't
+// guaranteed to apply; the database role must carry it too (CLAUDE.md
+// deployment checklist). Say so loudly rather than run without a limit.
+effectiveStatementTimeoutMs()
+  .then((ms) => {
+    if (ms === 0) {
+      logger.warn(
+        "statement_timeout is 0 (unlimited) on this connection — set it on the database role; see CLAUDE.md deployment checklist",
+      );
+    }
+  })
+  .catch((error: unknown) => {
+    logger.warn({ err: error }, "Could not read statement_timeout at boot");
+  });
 
 let shuttingDown = false;
 

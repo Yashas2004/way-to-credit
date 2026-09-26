@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
-import { AppError, TooManyRequestsError } from "../lib/errors.js";
+import { AppError, ServiceBusyError, TooManyRequestsError } from "../lib/errors.js";
+import { isDatabaseBusyError } from "../lib/pgErrors.js";
 
 export function notFoundHandler(req: Request, res: Response): void {
   res.status(404).json({
@@ -12,6 +13,19 @@ export function notFoundHandler(req: Request, res: Response): void {
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Express requires 4 args to recognize an error handler
 export function errorHandler(err: unknown, req: Request, res: Response, next: NextFunction): void {
+  if (isDatabaseBusyError(err)) {
+    // Fail fast and visibly: a clear 503 the client can retry, never a hang
+    // or a generic 500. Logged at warn with the cause — a run of these means
+    // the pool or the database needs attention.
+    req.log.warn({ err, requestId: req.id }, "Database busy: pool or statement timeout");
+    const busy = new ServiceBusyError(
+      "The service is busy right now. Please try again in a moment.",
+    );
+    res.setHeader("Retry-After", String(busy.retryAfterSeconds));
+    res.status(busy.statusCode).json({ error: { code: busy.code, message: busy.message } });
+    return;
+  }
+
   if (err instanceof AppError) {
     if (err instanceof TooManyRequestsError) {
       res.setHeader("Retry-After", String(err.retryAfterSeconds));

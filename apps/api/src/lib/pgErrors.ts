@@ -2,6 +2,14 @@
 const UNIQUE_VIOLATION_SQLSTATE = "23505";
 // Postgres SQLSTATE for "lock_not_available" (a `lock_timeout` hit).
 const LOCK_TIMEOUT_SQLSTATE = "55P03";
+// Postgres SQLSTATE for "query_canceled" — what a `statement_timeout` raises.
+const QUERY_CANCELED_SQLSTATE = "57014";
+// node-postgres gives these no code, only a message: pg-pool's acquisition
+// timeout, and a new connection that didn't finish connecting in time.
+const POOL_TIMEOUT_MESSAGES = [
+  "timeout exceeded when trying to connect",
+  "Connection terminated due to connection timeout",
+];
 
 /**
  * drizzle-orm's node-postgres driver wraps the real `pg` error in a
@@ -43,4 +51,19 @@ export function isUniqueViolationError(error: unknown): boolean {
 
 export function isLockTimeoutError(error: unknown): boolean {
   return getPgErrorCode(error) === LOCK_TIMEOUT_SQLSTATE;
+}
+
+function hasPoolTimeoutMessage(error: unknown, depth = 0): boolean {
+  if (depth > 5 || !(error instanceof Error)) return false;
+  if (POOL_TIMEOUT_MESSAGES.includes(error.message)) return true;
+  return hasPoolTimeoutMessage(error.cause, depth + 1);
+}
+
+/**
+ * The database is saturated rather than broken: no pool connection within
+ * the acquisition timeout, or a statement cut off by statement_timeout.
+ * Mapped to 503 SERVICE_BUSY by the error handler.
+ */
+export function isDatabaseBusyError(error: unknown): boolean {
+  return getPgErrorCode(error) === QUERY_CANCELED_SQLSTATE || hasPoolTimeoutMessage(error);
 }

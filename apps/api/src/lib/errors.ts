@@ -82,6 +82,13 @@ export class ResourceBusyError extends AppError {
   readonly code = "RESOURCE_BUSY";
 }
 
+/** The database is saturated (pool acquisition or statement timeout) — retry shortly. */
+export class ServiceBusyError extends AppError {
+  readonly statusCode = 503;
+  readonly code = "SERVICE_BUSY";
+  readonly retryAfterSeconds = 2;
+}
+
 /** A guarded `UPDATE ... WHERE status='pending'` affected zero rows — someone else already resolved it. */
 export class AlreadyResolvedError extends AppError {
   readonly statusCode = 409;
