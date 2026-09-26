@@ -131,11 +131,11 @@ export function UsersPage() {
                       label={user.isActive ? "Active" : "Deactivated"}
                     />
                   </TableCell>
-                  <TableCell className="text-small text-muted">
+                  <TableCell className="whitespace-nowrap text-small text-muted">
                     {user.lastSeenAt ? `${formatIstDateTime(user.lastSeenAt)} IST` : "Never"}
                   </TableCell>
                   <TableCell>
-                    <div className="flex flex-wrap items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 whitespace-nowrap">
                       <Button
                         variant="ghost"
                         size="sm"
