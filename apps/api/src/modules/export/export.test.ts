@@ -9,6 +9,7 @@ import { createApp } from "../../app.js";
 import { db } from "../../db/client.js";
 import { bankLoanTypes, banks, descriptions, loanTypes, statuses } from "../../db/schema/index.js";
 import { createTestAdmin, deleteTestAdmin, loginAs, type TestAdmin } from "../../lib/testAuth.js";
+import { listExportRows, type ExportRow } from "./export.repo.js";
 import { getExportRows } from "./export.service.js";
 
 const app = createApp();
@@ -128,6 +129,51 @@ describe("export admin API", () => {
 
       expect(rows).toHaveLength(activeStatuses.length);
       expect(rows.every((r) => r.loanTypeName === loanType.name && r.body === "NA")).toBe(true);
+    } finally {
+      await db.delete(bankLoanTypes).where(eq(bankLoanTypes.bankId, bank.id));
+      await db.delete(banks).where(eq(banks.id, bank.id));
+      await db.delete(loanTypes).where(eq(loanTypes.id, loanType.id));
+    }
+  });
+
+  // Regression: a bank WITH a loan type attached, while no active statuses
+  // exist at all, fell into the empty-bank branch and was labelled "(No loan
+  // types attached yet)" — false. Zero statuses can't be arranged in a shared
+  // database, so this soft-deletes every status inside a transaction, reads
+  // the export through that transaction, and rolls it all back.
+  it("labels an attached loan type with no statuses as such, not as 'no loan types attached'", async () => {
+    const [bank] = await db
+      .insert(banks)
+      .values({ name: `Export No-Status Bank ${randomUUID()}` })
+      .returning();
+    const [loanType] = await db
+      .insert(loanTypes)
+      .values({ name: `Export No-Status Loan Type ${randomUUID()}` })
+      .returning();
+    if (!bank || !loanType) throw new Error("fixture insert failed");
+    await db.insert(bankLoanTypes).values({ bankId: bank.id, loanTypeId: loanType.id });
+
+    const ROLLBACK = new Error("rollback");
+    let rows: ExportRow[] = [];
+    try {
+      await db
+        .transaction(async (tx) => {
+          await tx.update(statuses).set({ deletedAt: new Date() });
+          rows = (await listExportRows(tx)).filter((r) => r.bankName === bank.name);
+          throw ROLLBACK;
+        })
+        .catch((error: unknown) => {
+          if (error !== ROLLBACK) throw error;
+        });
+
+      expect(rows).toEqual([
+        {
+          bankName: bank.name,
+          loanTypeName: loanType.name,
+          statusName: "(No statuses defined yet)",
+          body: "",
+        },
+      ]);
     } finally {
       await db.delete(bankLoanTypes).where(eq(bankLoanTypes.bankId, bank.id));
       await db.delete(banks).where(eq(banks.id, bank.id));

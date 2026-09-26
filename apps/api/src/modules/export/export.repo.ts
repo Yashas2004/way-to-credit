@@ -3,6 +3,7 @@ import { bankLoanTypes, banks, descriptions, loanTypes, statuses } from "../../d
 import type { DbOrTx } from "../../db/types.js";
 
 export const NO_LOAN_TYPES_ATTACHED = "(No loan types attached yet)";
+export const NO_STATUSES_DEFINED = "(No statuses defined yet)";
 
 export interface ExportRow {
   bankName: string;
@@ -53,10 +54,22 @@ export async function listExportRows(db: DbOrTx): Promise<ExportRow[]> {
   const bankNamesWithRows = new Set<string>();
 
   for (const row of rows) {
-    if (row.loanTypeName === null || row.statusName === null) {
+    if (row.loanTypeName === null) {
       continue; // unattached bank, or an attachment to a soft-deleted loan type
     }
     bankNamesWithRows.add(row.bankName);
+    if (row.statusName === null) {
+      // Attached, but no active statuses exist anywhere yet. The pair still
+      // gets its row — it must not fall through to the "no loan types
+      // attached" label below, which would be false.
+      result.push({
+        bankName: row.bankName,
+        loanTypeName: row.loanTypeName,
+        statusName: NO_STATUSES_DEFINED,
+        body: "",
+      });
+      continue;
+    }
     result.push({
       bankName: row.bankName,
       loanTypeName: row.loanTypeName,
