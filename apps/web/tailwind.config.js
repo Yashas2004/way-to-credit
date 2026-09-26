@@ -28,8 +28,13 @@ export default {
       // All primary text. Brand hue at 11% lightness, never pure #000.
       // 14.30:1 on canvas, 16.37:1 on surface.
       ink: "#122226",
-      // Secondary text, borders, neutral/in-progress status. 5.52:1 on canvas.
-      muted: "#4F6369",
+      // Secondary text, borders, neutral/in-progress status. 7.50:1 on
+      // canvas, 8.59:1 on white. Was #4F6369 (5.52:1): admin screens read
+      // "small" because most of their text is 13px in this colour (75% of the
+      // activity log, 50% of the dashboard), and 5.5:1 at 13px reads faint.
+      // Darkening it costs no table rows; the hairlines built from it at
+      // 10-40% barely move (muted/10 on canvas: 1.14:1 -> 1.16:1).
+      muted: "#3D4F54",
       // THE CYAN RULE. `brand` is 2.59:1 on canvas and 2.97:1 on white — it
       // fails AA for text, and the 3:1 non-text minimum, on light surfaces.
       // White text on it is 2.97:1 — also a fail. So:
