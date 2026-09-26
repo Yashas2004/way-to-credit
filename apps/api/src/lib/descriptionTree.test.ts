@@ -19,13 +19,20 @@ describe("buildDescriptionTree", () => {
       .insert(loanTypes)
       .values({ name: `Tree Test Loan Type ${randomUUID()}` })
       .returning();
-    if (!bank || !loanType) throw new Error("fixture insert failed");
+    // Its own status — CI migrates but never seeds, so no status is
+    // guaranteed to exist otherwise (this test once relied on the seed's ten
+    // and failed only in CI).
+    const [status] = await db
+      .insert(statuses)
+      .values({ name: `Tree Test Status ${randomUUID()}`, sortOrder: 9998 })
+      .returning();
+    if (!bank || !loanType || !status) throw new Error("fixture insert failed");
 
     await db.insert(bankLoanTypes).values({ bankId: bank.id, loanTypeId: loanType.id });
 
     try {
       const activeStatuses = await db.select().from(statuses).where(isNull(statuses.deletedAt));
-      expect(activeStatuses.length).toBeGreaterThan(0);
+      expect(activeStatuses.map((s) => s.id)).toContain(status.id);
 
       const tree = await buildDescriptionTree(db);
       const treeLoanType = tree
@@ -43,6 +50,7 @@ describe("buildDescriptionTree", () => {
         .where(and(eq(bankLoanTypes.bankId, bank.id), eq(bankLoanTypes.loanTypeId, loanType.id)));
       await db.delete(banks).where(eq(banks.id, bank.id));
       await db.delete(loanTypes).where(eq(loanTypes.id, loanType.id));
+      await db.delete(statuses).where(eq(statuses.id, status.id));
     }
   });
 
