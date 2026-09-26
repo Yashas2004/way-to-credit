@@ -275,9 +275,18 @@ function CreateUserModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
 
   const valid = userId.trim().length > 0 && displayName.trim().length > 0 && password.length >= 8;
 
+  // The state above always starts empty — the "pre-filled" values admins
+  // saw were the browser autofilling the *admin's own* saved login into an
+  // unannotated username + password pair. autoComplete tells it this is a
+  // new account, not a sign-in (Chrome ignores "off" on password fields but
+  // honours "new-password").
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Create user">
-      <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-4">
+      <form
+        onSubmit={(e) => void handleSubmit(e)}
+        className="flex flex-col gap-4"
+        autoComplete="off"
+      >
         <Input
           label="User ID"
           value={userId}
@@ -285,6 +294,7 @@ function CreateUserModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
             setUserId(e.target.value);
           }}
           placeholder="e.g. jdoe"
+          autoComplete="off"
           disabled={submitting}
         />
         <Input
@@ -293,11 +303,14 @@ function CreateUserModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
           onChange={(e) => {
             setDisplayName(e.target.value);
           }}
+          placeholder="e.g. Jane Doe"
+          autoComplete="off"
           disabled={submitting}
         />
         <Input
           label="Temporary password"
           type="password"
+          autoComplete="new-password"
           value={password}
           onChange={(e) => {
             setPassword(e.target.value);
@@ -368,6 +381,7 @@ function ResetPasswordModal({
         <Input
           label="New password"
           type="password"
+          autoComplete="new-password"
           value={password}
           onChange={(e) => {
             setPassword(e.target.value);

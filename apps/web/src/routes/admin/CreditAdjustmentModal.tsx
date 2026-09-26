@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button } from "../../components/Button";
-import { Input } from "../../components/Input";
+import { IntegerInput } from "../../components/IntegerInput";
 import { Modal } from "../../components/Modal";
 import { Textarea } from "../../components/Textarea";
 import { useToast } from "../../components/Toast";
@@ -21,20 +21,23 @@ export function CreditAdjustmentModal({
   userId,
   displayName,
 }: CreditAdjustmentModalProps) {
-  const [delta, setDelta] = useState("");
+  const [credits, setCredits] = useState("");
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
-  const parsedDelta = Number(delta);
-  const deltaValid = delta.trim() !== "" && Number.isInteger(parsedDelta) && parsedDelta !== 0;
+  // IntegerInput guarantees `credits` is only ever "", "-", or an integer
+  // string — the API field is still called `delta`, but that's internal.
+  const parsedCredits = Number(credits);
+  const creditsValid =
+    /^-?\d+$/.test(credits) && parsedCredits !== 0 && parsedCredits >= -100 && parsedCredits <= 100;
   const reasonValid = reason.trim().length > 0;
 
   function handleClose() {
     if (submitting) return;
-    setDelta("");
+    setCredits("");
     setReason("");
     setError(null);
     onClose();
@@ -42,7 +45,7 @@ export function CreditAdjustmentModal({
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!deltaValid || !reasonValid || submitting) return;
+    if (!creditsValid || !reasonValid || submitting) return;
 
     // Minted fresh inside the handler on every submit attempt — never once
     // on open. A genuine retry after a failed request needs a genuinely new
@@ -56,7 +59,7 @@ export function CreditAdjustmentModal({
     try {
       const res = await adjustUserCredits(
         userId,
-        { delta: parsedDelta, reason: reason.trim() },
+        { delta: parsedCredits, reason: reason.trim() },
         idempotencyKey,
       );
       await queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
@@ -67,7 +70,7 @@ export function CreditAdjustmentModal({
             }.`
           : "";
       showToast(`Credits adjusted.${milestoneNote}`, "success");
-      setDelta("");
+      setCredits("");
       setReason("");
       onClose();
     } catch (err) {
@@ -80,14 +83,13 @@ export function CreditAdjustmentModal({
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title={`Adjust credits — ${displayName}`}>
       <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-4">
-        <Input
-          label="Delta (positive to add, negative to deduct)"
-          type="number"
-          value={delta}
-          onChange={(e) => {
-            setDelta(e.target.value);
-          }}
+        <IntegerInput
+          label="Credits (positive to add, negative to deduct)"
+          value={credits}
+          onValueChange={setCredits}
+          allowNegative
           placeholder="e.g. 5 or -2"
+          hint="Whole numbers from -100 to 100, not zero."
           disabled={submitting}
         />
         <Textarea
@@ -115,7 +117,7 @@ export function CreditAdjustmentModal({
             type="submit"
             variant="primary"
             loading={submitting}
-            disabled={!deltaValid || !reasonValid}
+            disabled={!creditsValid || !reasonValid}
           >
             Adjust
           </Button>

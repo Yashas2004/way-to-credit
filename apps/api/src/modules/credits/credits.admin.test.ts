@@ -233,6 +233,30 @@ describe("admin credit adjustment API", () => {
     expect(tooLarge.status).toBe(400);
   });
 
+  // The admin UI now blocks non-integers at the input, but the server must
+  // reject them on its own — a UI restriction is not validation.
+  it("rejects a non-integer delta (decimal, or a numeric string) and moves no credits", async () => {
+    const [before] = await db
+      .select({ cp: users.creditPoints })
+      .from(users)
+      .where(eq(users.id, user.id));
+
+    for (const delta of [1.5, "5", "1e2"]) {
+      const res = await request(app)
+        .post(`/api/admin/users/${user.id}/credits`)
+        .set("Cookie", adminCookie)
+        .set("Idempotency-Key", randomUUID())
+        .send({ delta, reason: "non-integer" });
+      expect(res.status).toBe(400);
+    }
+
+    const [after] = await db
+      .select({ cp: users.creditPoints })
+      .from(users)
+      .where(eq(users.id, user.id));
+    expect(after?.cp).toBe(before?.cp);
+  });
+
   it("rejects an empty reason", async () => {
     const res = await request(app)
       .post(`/api/admin/users/${user.id}/credits`)
