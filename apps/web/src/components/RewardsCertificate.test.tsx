@@ -219,4 +219,38 @@ describe("RewardsCertificate", () => {
     fireEvent.click(screen.getByRole("button", { name: /hide how you earned level 1/i }));
     expect(screen.queryByText(/HDFC Bank — Home Loan/)).not.toBeInTheDocument();
   });
+
+  // Defensive: a locked milestone at or below the user's points (an unlock
+  // not recorded yet, or thresholds set out of level order) must never
+  // render "0 points to go" or a negative count.
+  it("never renders a zero or negative points-to-go count", () => {
+    renderCertificate({
+      creditPoints: 13,
+      milestones: [
+        milestone({
+          milestoneId: "a",
+          levelNumber: 1,
+          pointsRequired: 5,
+          unlockedAt: "2026-01-01T00:00:00.000Z",
+          seenAt: "2026-01-01T00:00:00.000Z",
+        }),
+        milestone({ milestoneId: "b", levelNumber: 2, pointsRequired: 15, title: "Level 2" }),
+        milestone({ milestoneId: "c", levelNumber: 3, pointsRequired: 12, title: "Level 3" }),
+        milestone({ milestoneId: "d", levelNumber: 4, pointsRequired: 13, title: "Level 4" }),
+      ],
+    });
+    const text = document.body.textContent;
+    expect(text).not.toMatch(/-\d+ points? to go/);
+    expect(text).not.toMatch(/(^|\D)0 points? to go/);
+    expect(screen.getAllByText("Points reached")).toHaveLength(2);
+    expect(screen.getByText("Next — 2 points to go")).toBeInTheDocument();
+  });
+
+  it("says '1 point', not '1 points'", () => {
+    renderCertificate({
+      creditPoints: 4,
+      milestones: [milestone({ milestoneId: "a", levelNumber: 1, pointsRequired: 5 })],
+    });
+    expect(screen.getByText("Next — 1 point to go")).toBeInTheDocument();
+  });
 });

@@ -95,7 +95,7 @@ export function RewardsCertificate({
   const journeySummary =
     heroIndex === -1
       ? "You've unlocked every milestone. Thank you for helping keep the portal accurate."
-      : `${String((thresholds[heroIndex] ?? 0) - creditPoints)} points to your next seal.`;
+      : `${pointsPhrase(pointsToGo(thresholds[heroIndex] ?? 0, creditPoints))} to your next seal.`;
 
   return (
     <div className="rounded-md border border-muted/25 p-1">
@@ -196,16 +196,10 @@ export function RewardsCertificate({
                       Level {milestone.levelNumber} — {milestone.pointsRequired} points
                     </span>
                     {unlocked && <Badge tone="success" label="Unlocked" />}
-                    {!unlocked && isHero && (
-                      <Badge
-                        tone="attention"
-                        label={`Next — ${String(milestone.pointsRequired - creditPoints)} points to go`}
-                      />
-                    )}
-                    {!unlocked && !isHero && (
-                      <Badge
-                        tone="neutral"
-                        label={`Locked — ${String(milestone.pointsRequired - creditPoints)} points to go`}
+                    {!unlocked && (
+                      <LockedBadge
+                        isHero={isHero}
+                        remaining={pointsToGo(milestone.pointsRequired, creditPoints)}
                       />
                     )}
                   </div>
@@ -246,5 +240,32 @@ export function RewardsCertificate({
         </ol>
       </div>
     </div>
+  );
+}
+
+/**
+ * Never negative, whatever the data says. The server backfills unlocks when
+ * a milestone is created, lowered or reactivated, but a not-yet-recorded
+ * unlock (or thresholds an admin set out of level order) could still put a
+ * locked milestone at or below the user's points.
+ */
+function pointsToGo(pointsRequired: number, creditPoints: number): number {
+  return Math.max(0, pointsRequired - creditPoints);
+}
+
+function pointsPhrase(n: number): string {
+  return `${String(n)} point${n === 1 ? "" : "s"}`;
+}
+
+function LockedBadge({ isHero, remaining }: { isHero: boolean; remaining: number }) {
+  if (remaining === 0) {
+    // Points already meet the threshold but no unlock is recorded yet —
+    // say so plainly rather than "0 points to go".
+    return <Badge tone="neutral" label="Points reached" />;
+  }
+  return isHero ? (
+    <Badge tone="attention" label={`Next — ${pointsPhrase(remaining)} to go`} />
+  ) : (
+    <Badge tone="neutral" label={`Locked — ${pointsPhrase(remaining)} to go`} />
   );
 }
