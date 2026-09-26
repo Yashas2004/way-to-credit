@@ -123,4 +123,57 @@ describe("description tree cache", () => {
     await expect(getDescriptionTree()).resolves.toBeInstanceOf(Array);
     expect(buildSpy).toHaveBeenCalledTimes(2);
   });
+
+  describe("in-process copy keyed by version", () => {
+    it("serves a warm read without fetching the payload from Redis, and still sees another instance's invalidation", async () => {
+      await getDescriptionTree(); // warm this instance
+      const getSpy = vi.spyOn(redis, "get");
+      // A bank inserted directly, bypassing the service, so nothing invalidates.
+      const [bank] = await db
+        .insert(banks)
+        .values({ name: `Memo Bank ${randomUUID()}` })
+        .returning();
+      if (!bank) throw new Error("fixture insert failed");
+      try {
+        const warm = await getDescriptionTree();
+        expect(warm.some((b) => b.bankId === bank.id)).toBe(false); // served from memory
+        expect(getSpy.mock.calls.map(([key]) => key)).toEqual(["tree:version"]); // no payload fetch
+
+        // What another instance's admin write does: replace the version token.
+        await redis.set("tree:version", randomUUID());
+        const after = await getDescriptionTree();
+        expect(after.some((b) => b.bankId === bank.id)).toBe(true);
+      } finally {
+        getSpy.mockRestore();
+        await db.delete(banks).where(eq(banks.id, bank.id));
+        await invalidateDescriptionTreeCache();
+      }
+    });
+
+    it("hands out a frozen tree, so no request can mutate another's view", async () => {
+      const tree = await getDescriptionTree();
+      expect(Object.isFrozen(tree)).toBe(true);
+      expect(() => {
+        (tree as unknown as unknown[]).push({});
+      }).toThrow(TypeError);
+    });
+
+    it("isn't used when Redis is down: reads fall through to Postgres, fresh", async () => {
+      await getDescriptionTree(); // warm memo
+      const [bank] = await db
+        .insert(banks)
+        .values({ name: `Memo Bank ${randomUUID()}` })
+        .returning();
+      if (!bank) throw new Error("fixture insert failed");
+      const getSpy = vi.spyOn(redis, "get").mockRejectedValue(new Error("simulated redis outage"));
+      try {
+        const tree = await getDescriptionTree();
+        expect(tree.some((b) => b.bankId === bank.id)).toBe(true);
+      } finally {
+        getSpy.mockRestore();
+        await db.delete(banks).where(eq(banks.id, bank.id));
+        await invalidateDescriptionTreeCache();
+      }
+    });
+  });
 });

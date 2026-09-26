@@ -43,6 +43,34 @@ export async function invalidateDescriptionTreeCache(): Promise<void> {
 }
 
 /**
+ * The parsed tree for the version this instance last saw. Every request
+ * still reads the (tiny) version token from Redis, so an admin write on any
+ * instance invalidates this on every instance at the next request — CLAUDE.md
+ * invariant 19 holds exactly as before. What it saves is the payload: at a
+ * year's data the tree is ~1.4 MB of JSON, which every lookup used to fetch
+ * from Redis and parse (11 ms locally, far more over a network to managed
+ * Redis, and ~40 GB/day of Redis traffic at 300 users). Deep-frozen because
+ * it's shared across requests: a caller mutating it throws, loudly, instead
+ * of corrupting everyone else's view. Never used on the Redis-down path —
+ * without a version there's no way to know it's current.
+ */
+let memo: { version: string; tree: DescriptionTreeBank[] } | null = null;
+
+function deepFreeze<T>(value: T): T {
+  if (value && typeof value === "object" && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    for (const child of Object.values(value)) deepFreeze(child);
+  }
+  return value;
+}
+
+function remember(version: string, tree: DescriptionTreeBank[]): DescriptionTreeBank[] {
+  const frozen = deepFreeze(tree);
+  memo = { version, tree: frozen };
+  return frozen;
+}
+
+/**
  * Single-flight: concurrent misses for the same version share one rebuild
  * instead of each running their own. Measured before this existed: 300
  * concurrent misses ran 300 rebuilds and starved the 10-connection pool
@@ -70,6 +98,7 @@ async function rebuildAndPopulate(version: string | undefined): Promise<Descript
   const tree = await buildDescriptionTree(db);
 
   if (version !== undefined) {
+    remember(version, tree);
     try {
       await redis.set(`${TREE_KEY_PREFIX}${version}`, JSON.stringify(tree), "EX", TREE_TTL_SECONDS);
     } catch (error) {
@@ -88,9 +117,12 @@ export async function getDescriptionTree(): Promise<DescriptionTreeBank[]> {
 
   try {
     version = await getCurrentVersion();
+    if (memo?.version === version) {
+      return memo.tree;
+    }
     const cached = await redis.get(`${TREE_KEY_PREFIX}${version}`);
     if (cached) {
-      return JSON.parse(cached) as DescriptionTreeBank[];
+      return remember(version, JSON.parse(cached) as DescriptionTreeBank[]);
     }
   } catch (error) {
     logger.warn(
