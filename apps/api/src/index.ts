@@ -3,6 +3,7 @@ import { env } from "./config/env.js";
 import { closeDb } from "./lib/db.js";
 import { logger } from "./lib/logger.js";
 import { closeRedis } from "./lib/redis.js";
+import { startSessionRetentionSchedule } from "./modules/auth/sessionRetention.service.js";
 
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 
@@ -28,6 +29,8 @@ const server = app.listen(env.PORT, () => {
   logger.info(`API listening on port ${String(env.PORT)}`);
 });
 
+const stopSessionRetention = startSessionRetentionSchedule();
+
 let shuttingDown = false;
 
 function shutdown(signal: string): void {
@@ -41,6 +44,7 @@ function shutdown(signal: string): void {
     process.exit(1);
   }, SHUTDOWN_TIMEOUT_MS);
   forceExit.unref();
+  stopSessionRetention();
 
   server.close((err) => {
     if (err) {

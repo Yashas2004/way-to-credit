@@ -24,6 +24,15 @@ export const sessions = pgTable(
     index("sessions_admin_id_idx").on(table.adminId),
     index("sessions_family_id_idx").on(table.familyId),
     uniqueIndex("sessions_refresh_token_hash_unique").on(table.refreshTokenHash),
+    // When a session stopped being usable: revoked, or else expired. The
+    // retention job deletes by this expression (sessionRetention.service.ts),
+    // so it's indexed as exactly that expression.
+    index("sessions_ended_at_idx").on(sql`coalesce(${table.revokedAt}, ${table.expiresAt})`),
+    // The admin "active sessions" list: live user sessions only. Partial, so
+    // it stays a few hundred entries however many ended sessions are retained.
+    index("sessions_active_user_expires_idx")
+      .on(table.expiresAt)
+      .where(sql`${table.revokedAt} IS NULL AND ${table.userId} IS NOT NULL`),
     check(
       "sessions_actor_xor_check",
       sql`(${table.userId} IS NOT NULL) <> (${table.adminId} IS NOT NULL)`,

@@ -1,0 +1,2 @@
+CREATE INDEX "sessions_ended_at_idx" ON "sessions" USING btree (coalesce("revoked_at", "expires_at"));--> statement-breakpoint
+CREATE INDEX "sessions_active_user_expires_idx" ON "sessions" USING btree ("expires_at") WHERE "sessions"."revoked_at" IS NULL AND "sessions"."user_id" IS NOT NULL;

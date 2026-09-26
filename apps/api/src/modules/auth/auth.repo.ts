@@ -1,4 +1,4 @@
-import { and, eq, isNull, ne } from "drizzle-orm";
+import { and, eq, inArray, isNull, lt, ne, sql } from "drizzle-orm";
 import { activityLog, admins, sessions, users } from "../../db/schema/index.js";
 import type { DbOrTx } from "../../db/types.js";
 import type { Role } from "../../lib/jwt.js";
@@ -129,4 +129,31 @@ export interface ActivityLogEntry {
 
 export async function logActivity(db: DbOrTx, entry: ActivityLogEntry): Promise<void> {
   await db.insert(activityLog).values(entry);
+}
+
+/**
+ * Deletes up to `batchSize` sessions that ended (revoked, or else expired)
+ * before `cutoff`. `FOR UPDATE SKIP LOCKED` makes concurrent callers — two
+ * API instances running the retention job at once — take disjoint batches
+ * instead of blocking on, or double-deleting, the same rows. Each call is
+ * its own short statement, so no lock is held across batches.
+ */
+export async function deleteSessionsEndedBefore(
+  db: DbOrTx,
+  cutoff: Date,
+  batchSize: number,
+): Promise<number> {
+  const endedAt = sql`coalesce(${sessions.revokedAt}, ${sessions.expiresAt})`;
+  const batch = db
+    .select({ id: sessions.id })
+    .from(sessions)
+    .where(lt(endedAt, cutoff))
+    .orderBy(endedAt)
+    .limit(batchSize)
+    .for("update", { skipLocked: true });
+  const deleted = await db
+    .delete(sessions)
+    .where(inArray(sessions.id, batch))
+    .returning({ id: sessions.id });
+  return deleted.length;
 }
