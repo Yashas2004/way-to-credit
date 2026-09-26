@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { eq, isNull } from "drizzle-orm";
 // See the comment in export.routes.ts: exceljs is CJS-only, so only the
 // default import carries its real exports under Node's native ESM loader.
 import ExcelJS from "exceljs";
@@ -7,7 +7,7 @@ import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../../app.js";
 import { db } from "../../db/client.js";
-import { banks, descriptions, loanTypes, statuses } from "../../db/schema/index.js";
+import { bankLoanTypes, banks, descriptions, loanTypes, statuses } from "../../db/schema/index.js";
 import { createTestAdmin, deleteTestAdmin, loginAs, type TestAdmin } from "../../lib/testAuth.js";
 import { getExportRows } from "./export.service.js";
 
@@ -55,6 +55,7 @@ describe("export admin API", () => {
     loanTypeId = loanType.id;
     statusId = status.id;
 
+    await db.insert(bankLoanTypes).values({ bankId, loanTypeId });
     await db.insert(descriptions).values({
       bankId,
       loanTypeId,
@@ -66,6 +67,7 @@ describe("export admin API", () => {
 
   afterAll(async () => {
     await db.delete(descriptions).where(eq(descriptions.bankId, bankId));
+    await db.delete(bankLoanTypes).where(eq(bankLoanTypes.bankId, bankId));
     await db.delete(banks).where(eq(banks.id, bankId));
     await db.delete(loanTypes).where(eq(loanTypes.id, loanTypeId));
     await db.delete(statuses).where(eq(statuses.id, statusId));
@@ -104,5 +106,54 @@ describe("export admin API", () => {
     expect(asText).not.toMatch(/passwordHash/i);
     expect(asText).not.toContain("$argon2id$");
     expect(asText).not.toContain(admin.adminId);
+  });
+
+  // Regression: the export used to select FROM descriptions, so a bank an
+  // admin created (no materialised NA rows, unlike seeded banks) was missing.
+  it("includes a newly created, newly wired bank with every active status as NA", async () => {
+    const [bank] = await db
+      .insert(banks)
+      .values({ name: `Export New Bank ${randomUUID()}` })
+      .returning();
+    const [loanType] = await db
+      .insert(loanTypes)
+      .values({ name: `Export New Loan Type ${randomUUID()}` })
+      .returning();
+    if (!bank || !loanType) throw new Error("fixture insert failed");
+    await db.insert(bankLoanTypes).values({ bankId: bank.id, loanTypeId: loanType.id });
+
+    try {
+      const activeStatuses = await db.select().from(statuses).where(isNull(statuses.deletedAt));
+      const rows = (await getExportRows()).filter((r) => r.bankName === bank.name);
+
+      expect(rows).toHaveLength(activeStatuses.length);
+      expect(rows.every((r) => r.loanTypeName === loanType.name && r.body === "NA")).toBe(true);
+    } finally {
+      await db.delete(bankLoanTypes).where(eq(bankLoanTypes.bankId, bank.id));
+      await db.delete(banks).where(eq(banks.id, bank.id));
+      await db.delete(loanTypes).where(eq(loanTypes.id, loanType.id));
+    }
+  });
+
+  it("includes a bank with no loan types attached as a single row that says so", async () => {
+    const [bank] = await db
+      .insert(banks)
+      .values({ name: `Export Unwired Bank ${randomUUID()}` })
+      .returning();
+    if (!bank) throw new Error("fixture insert failed");
+
+    try {
+      const rows = (await getExportRows()).filter((r) => r.bankName === bank.name);
+      expect(rows).toEqual([
+        {
+          bankName: bank.name,
+          loanTypeName: "(No loan types attached yet)",
+          statusName: "",
+          body: "",
+        },
+      ]);
+    } finally {
+      await db.delete(banks).where(eq(banks.id, bank.id));
+    }
   });
 });

@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull } from "drizzle-orm";
 import { bankLoanTypes, banks, descriptions, loanTypes, statuses } from "../db/schema/index.js";
 import type { DbOrTx } from "../db/types.js";
 
@@ -23,17 +23,18 @@ export interface DescriptionTreeBank {
 
 /**
  * The one query that defines "the description tree" — anchored on banks →
- * bank_loan_types → loan_types (not on descriptions), so a freshly-wired
- * bank+loanType pair with zero description rows yet still appears, with an
- * empty status list, rather than silently vanishing. A status only appears
- * once it has a real `descriptions` row — that row's existence is what
- * makes it "applicable" — so this is a distinct (sparser) view than the
- * admin curation grid in modules/descriptions, which synthesizes 'NA' rows
- * for every status regardless of whether a description exists yet.
+ * bank_loan_types → loan_types → every active status, with `descriptions`
+ * only LEFT JOINed in for the body. Never anchored on `descriptions` at any
+ * level: a (bank, loan type, status) triple exists as soon as the pair is
+ * wired, and its body defaults to "NA" until an admin writes one (spec:
+ * "defaults to NA until admin fills it in"). This used to reach statuses
+ * *through* descriptions, so only seeded pairs (whose NA rows the seed
+ * script materialises) showed statuses — every admin-created bank or newly
+ * attached loan type showed none. Same shape as the admin grid and the
+ * single-description lookup, which already synthesised NA.
  *
- * Reused by both this stage's cache (lib/cache.ts) and, later, the
- * user-facing tree-read route — write the filtering logic once here so the
- * two can't independently drift apart.
+ * Shared by the Redis cache (lib/cache.ts) and the user-facing tree read —
+ * written once here so the two can't independently drift apart.
  */
 export async function buildDescriptionTree(db: DbOrTx): Promise<DescriptionTreeBank[]> {
   const rows = await db
@@ -53,11 +54,16 @@ export async function buildDescriptionTree(db: DbOrTx): Promise<DescriptionTreeB
       loanTypes,
       and(eq(loanTypes.id, bankLoanTypes.loanTypeId), isNull(loanTypes.deletedAt)),
     )
+    // Every active status, for every wired pair — a conditional cross join.
+    .leftJoin(statuses, and(isNotNull(loanTypes.id), isNull(statuses.deletedAt)))
     .leftJoin(
       descriptions,
-      and(eq(descriptions.bankId, banks.id), eq(descriptions.loanTypeId, loanTypes.id)),
+      and(
+        eq(descriptions.bankId, banks.id),
+        eq(descriptions.loanTypeId, loanTypes.id),
+        eq(descriptions.statusId, statuses.id),
+      ),
     )
-    .leftJoin(statuses, and(eq(statuses.id, descriptions.statusId), isNull(statuses.deletedAt)))
     .where(isNull(banks.deletedAt))
     .orderBy(asc(banks.name), asc(loanTypes.name), asc(statuses.sortOrder));
 
@@ -85,7 +91,7 @@ export async function buildDescriptionTree(db: DbOrTx): Promise<DescriptionTreeB
     }
 
     if (row.statusId === null) {
-      continue; // wired pair with no description rows yet
+      continue; // wired pair, but no active statuses exist at all
     }
 
     loanType.statuses.push({

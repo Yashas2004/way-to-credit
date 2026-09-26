@@ -110,6 +110,23 @@ describe("WorkspacePage", () => {
     expect(screen.getByLabelText<HTMLSelectElement>("Status")).toBeDisabled();
   });
 
+  // Regression: a bank with nothing attached rendered a silently empty
+  // Loan type dropdown, indistinguishable from a broken one.
+  it("says plainly when the chosen bank has no loan types attached yet", async () => {
+    mockFetchUserTree.mockResolvedValue([
+      ...TREE,
+      { bankId: "bank-new", bankName: "Brand New Bank", loanTypes: [] },
+    ]);
+
+    renderWorkspace();
+
+    await screen.findByRole("option", { name: "Brand New Bank" });
+    fireEvent.change(screen.getByLabelText("Bank"), { target: { value: "bank-new" } });
+
+    expect(screen.getByText("This bank has no loan types attached yet.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Loan type")).toBeDisabled();
+  });
+
   it("shows the NA state distinctly from a real description", async () => {
     mockFetchUserTree.mockResolvedValue(TREE);
     mockFetchDescription.mockResolvedValue({ body: "NA" });

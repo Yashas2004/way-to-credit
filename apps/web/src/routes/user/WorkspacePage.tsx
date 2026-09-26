@@ -23,6 +23,9 @@ export function WorkspacePage() {
   const banks = treeQuery.data ?? [];
   const selectedBank = banks.find((b) => b.bankId === bankId);
   const loanTypes = selectedBank?.loanTypes ?? [];
+  // A bank with nothing wired to it yet is a real, valid state — say so,
+  // rather than presenting a silently empty dropdown.
+  const bankHasNoLoanTypes = Boolean(selectedBank) && loanTypes.length === 0;
   const selectedLoanType = loanTypes.find((lt) => lt.loanTypeId === loanTypeId);
   const statuses = useMemo(
     () => [...(selectedLoanType?.statuses ?? [])].sort((a, b) => a.sortOrder - b.sortOrder),
@@ -115,9 +118,13 @@ export function WorkspacePage() {
           onChange={(e) => {
             handleLoanTypeChange(e.target.value);
           }}
-          placeholder="Choose a loan type"
-          disabled={!bankId}
-          {...(!bankId ? { hint: "Choose a bank first" } : {})}
+          placeholder={bankHasNoLoanTypes ? "None available" : "Choose a loan type"}
+          disabled={!bankId || bankHasNoLoanTypes}
+          {...(!bankId
+            ? { hint: "Choose a bank first" }
+            : bankHasNoLoanTypes
+              ? { hint: "This bank has no loan types attached yet." }
+              : {})}
           options={loanTypes.map((lt) => ({ value: lt.loanTypeId, label: lt.loanTypeName }))}
         />
         <Select
