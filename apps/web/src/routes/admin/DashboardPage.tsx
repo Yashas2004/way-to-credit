@@ -68,7 +68,14 @@ export function DashboardPage() {
             to="/admin/queries"
             className="flex flex-col justify-center gap-1 rounded-sm pr-6 hover:bg-ink/5 sm:border-r sm:border-muted/15"
           >
-            <span className="text-h1 font-serif text-attention tabular-nums">
+            {/* Amber means "needs attention" — zero pending is the opposite,
+                so an empty queue reads neutral, like the other stats. */}
+            <span
+              data-testid="pending-query-count"
+              className={`text-h1 font-serif tabular-nums ${
+                statsQuery.data.pendingQueryCount > 0 ? "text-attention" : "text-ink"
+              }`}
+            >
               {statsQuery.data.pendingQueryCount}
             </span>
             <span className="text-body font-medium text-ink">Pending queries</span>
