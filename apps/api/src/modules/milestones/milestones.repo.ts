@@ -1,5 +1,5 @@
-import { asc, eq, sql } from "drizzle-orm";
-import { milestones, userMilestones } from "../../db/schema/index.js";
+import { asc, eq, gte, sql } from "drizzle-orm";
+import { milestones, userMilestones, users } from "../../db/schema/index.js";
 import type { DbOrTx } from "../../db/types.js";
 
 export type MilestoneRow = typeof milestones.$inferSelect;
@@ -24,6 +24,35 @@ export async function createMilestone(
     throw new Error("Failed to create milestone");
   }
   return row;
+}
+
+/**
+ * Unlocks `milestoneId` for every user whose current credit_points already
+ * meets `pointsRequired` — the same eligibility rule the credit path uses
+ * (credits.repo.ts `unlockEligibleMilestones`: any user, points >= threshold),
+ * applied from the milestone side. `seen_at` stays null so the unlock
+ * animation still plays; ON CONFLICT DO NOTHING keeps existing unlocks (and
+ * their original unlocked_at/seen_at) untouched, so re-running is a no-op.
+ * Returns how many unlocks were newly created.
+ */
+export async function backfillUnlocksForMilestone(
+  db: DbOrTx,
+  milestoneId: string,
+  pointsRequired: number,
+): Promise<number> {
+  const eligible = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(gte(users.creditPoints, pointsRequired));
+  if (eligible.length === 0) {
+    return 0;
+  }
+  const inserted = await db
+    .insert(userMilestones)
+    .values(eligible.map((u) => ({ userId: u.id, milestoneId })))
+    .onConflictDoNothing()
+    .returning({ id: userMilestones.id });
+  return inserted.length;
 }
 
 export async function listMilestones(db: DbOrTx): Promise<MilestoneRow[]> {

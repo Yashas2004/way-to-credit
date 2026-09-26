@@ -4,6 +4,7 @@ import type {
   UpdateMilestoneRequest,
 } from "@way-to-credit/shared";
 import { db } from "../../db/client.js";
+import type { DbOrTx } from "../../db/types.js";
 import { recordAudit } from "../../lib/audit.js";
 import { ConflictError, NotFoundError } from "../../lib/errors.js";
 import { getViolatedConstraint, isUniqueViolationError } from "../../lib/pgErrors.js";
@@ -26,6 +27,27 @@ function toMilestoneResponse(
     updatedAt: row.updatedAt.toISOString(),
     unlockedCount,
   };
+}
+
+/**
+ * Any write that leaves a milestone active backfills unlocks for users who
+ * already meet its threshold, in the same transaction as the write. Without
+ * this, creating a milestone below users' current points, lowering one, or
+ * reactivating one they passed while it was inactive left them looking at
+ * "Locked — 0 points to go" until their next credit event — the credit path
+ * only unlocks when points change. Running it on every active write (not
+ * just create/lower) is deliberate: it's idempotent, it also covers
+ * reactivation, and it repairs any unlock missed earlier.
+ *
+ * Same accepted TOCTOU as the credit path (credits.service.ts): a credit
+ * award committing concurrently with this write can miss the new threshold
+ * on both sides; it self-heals on that user's next credit event or the next
+ * write to this milestone.
+ */
+async function backfillIfActive(tx: DbOrTx, row: milestonesRepo.MilestoneRow): Promise<void> {
+  if (row.isActive) {
+    await milestonesRepo.backfillUnlocksForMilestone(tx, row.id, row.pointsRequired);
+  }
 }
 
 const LEVEL_NUMBER_UNIQUE = "milestones_level_number_unique";
@@ -58,6 +80,7 @@ export async function createMilestone(
   try {
     row = await db.transaction(async (tx) => {
       const created = await milestonesRepo.createMilestone(tx, input);
+      await backfillIfActive(tx, created);
       await recordAudit(tx, {
         actorId,
         actorType: "admin",
@@ -74,8 +97,9 @@ export async function createMilestone(
     }
     throw error;
   }
-  // A brand-new milestone genuinely has 0 unlocks — no need to query for it.
-  return toMilestoneResponse(row, 0);
+  // Not 0: the backfill may already have unlocked it for existing users.
+  const unlockedCount = await milestonesRepo.countUnlockedForMilestone(db, row.id);
+  return toMilestoneResponse(row, unlockedCount);
 }
 
 export async function listMilestones(): Promise<MilestoneResponse[]> {
@@ -86,9 +110,10 @@ export async function listMilestones(): Promise<MilestoneResponse[]> {
 /**
  * `title`/`message`/`pointsRequired`/`isActive` are all editable here —
  * `levelNumber` is not (immutable post-creation, no route accepts it).
- * Never touches `user_milestones` — an unlock row (unlockedAt/seenAt, the
- * fact of having unlocked it) is a historical record and stays exactly as
- * it was regardless of later edits here.
+ * Never removes or rewrites a `user_milestones` row — an unlock
+ * (unlockedAt/seenAt, the fact of having unlocked it) is a historical record
+ * and stays exactly as it was, even if pointsRequired is later raised above
+ * that user's points. It only ever adds unlocks, via `backfillIfActive`.
  */
 export async function updateMilestone(
   actorId: string,
@@ -107,6 +132,7 @@ export async function updateMilestone(
       if (!updated) {
         throw new NotFoundError("Milestone not found.");
       }
+      await backfillIfActive(tx, updated);
 
       await recordAudit(tx, {
         actorId,
@@ -125,9 +151,8 @@ export async function updateMilestone(
     }
     throw error;
   }
-  // Editing never touches user_milestones (see the comment above) — this
-  // milestone may well already have real unlocks, so the count has to be
-  // fetched, not assumed 0.
+  // This milestone may well already have real unlocks, so the count has to
+  // be fetched, not assumed 0.
   const unlockedCount = await milestonesRepo.countUnlockedForMilestone(db, after.id);
   return toMilestoneResponse(after, unlockedCount);
 }
@@ -147,6 +172,7 @@ async function setActive(
     if (!updated) {
       throw new NotFoundError("Milestone not found.");
     }
+    await backfillIfActive(tx, updated);
 
     await recordAudit(tx, {
       actorId,

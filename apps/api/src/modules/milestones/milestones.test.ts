@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createApp } from "../../app.js";
 import { db } from "../../db/client.js";
-import { creditTransactions, milestones, userMilestones } from "../../db/schema/index.js";
+import { creditTransactions, milestones, userMilestones, users } from "../../db/schema/index.js";
 import {
   createTestAdmin,
   createTestUser,
@@ -336,5 +336,167 @@ describe("mark milestone seen", () => {
       .post(`/api/user/me/milestones/${randomUUID()}/seen`)
       .set("Cookie", userCookie);
     expect(res.status).toBe(404);
+  });
+});
+
+// Regression: the credit path only unlocks milestones when a user's points
+// change, so a milestone created (or lowered, or reactivated) below points
+// a user already had stayed locked for them — the rewards page showed
+// "Locked — 0 points to go" or a negative number. Any write that leaves a
+// milestone active now backfills unlocks in the same transaction.
+describe("milestone unlock backfill on admin writes", () => {
+  let admin: TestAdmin;
+  let adminCookie: string;
+
+  beforeAll(async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(WITHIN_WINDOW_INSTANT);
+    admin = await createTestAdmin();
+    adminCookie = await loginAs(app, admin.adminId);
+  });
+
+  afterAll(async () => {
+    vi.useRealTimers();
+    await deleteTestAdmin(admin.id);
+  });
+
+  async function userWithPoints(creditPoints: number): Promise<TestUser> {
+    const user = await createTestUser(admin.id);
+    await db.update(users).set({ creditPoints }).where(eq(users.id, user.id));
+    return user;
+  }
+
+  async function unlockRow(userId: string, milestoneId: string) {
+    const [row] = await db
+      .select()
+      .from(userMilestones)
+      .where(and(eq(userMilestones.userId, userId), eq(userMilestones.milestoneId, milestoneId)));
+    return row;
+  }
+
+  async function cleanup(milestoneId: string | undefined, testUsers: TestUser[]) {
+    if (milestoneId) {
+      await db.delete(userMilestones).where(eq(userMilestones.milestoneId, milestoneId));
+      await db.delete(milestones).where(eq(milestones.id, milestoneId));
+    }
+    for (const u of testUsers) {
+      await deleteTestUser(u.id);
+    }
+  }
+
+  it("create unlocks it, unseen, for users already at the threshold — and only them", async () => {
+    const level = freshLevel();
+    const threshold = 700_000 + level;
+    const atThreshold = await userWithPoints(threshold);
+    const above = await userWithPoints(threshold + 5);
+    const below = await userWithPoints(threshold - 1);
+    let milestoneId: string | undefined;
+
+    try {
+      const res = await request(app)
+        .post("/api/admin/milestones")
+        .set("Cookie", adminCookie)
+        .send({ levelNumber: level, pointsRequired: threshold, title: "T", message: "m" });
+      expect(res.status).toBe(201);
+      milestoneId = (res.body as MilestoneBody).id;
+      expect((res.body as MilestoneBody).unlockedCount).toBe(2);
+
+      const atRow = await unlockRow(atThreshold.id, milestoneId);
+      expect(atRow).toBeDefined();
+      expect(atRow?.seenAt).toBeNull(); // the unlock animation must still play
+      expect(await unlockRow(above.id, milestoneId)).toBeDefined();
+      expect(await unlockRow(below.id, milestoneId)).toBeUndefined();
+    } finally {
+      await cleanup(milestoneId, [atThreshold, above, below]);
+    }
+  });
+
+  it("lowering pointsRequired unlocks it for newly-qualifying users and leaves existing unlocks untouched", async () => {
+    const level = freshLevel();
+    const threshold = 700_000 + level;
+    const alreadyUnlocked = await userWithPoints(threshold + 100);
+    const nowQualifies = await userWithPoints(threshold);
+    const stillBelow = await userWithPoints(threshold - 1);
+    let milestoneId: string | undefined;
+
+    try {
+      const created = await request(app)
+        .post("/api/admin/milestones")
+        .set("Cookie", adminCookie)
+        .send({ levelNumber: level, pointsRequired: threshold + 50, title: "T", message: "m" });
+      expect(created.status).toBe(201);
+      milestoneId = (created.body as MilestoneBody).id;
+      expect(await unlockRow(nowQualifies.id, milestoneId)).toBeUndefined();
+
+      // The existing unlock has been seen; lowering must not reset it.
+      const seenAt = new Date(WITHIN_WINDOW_INSTANT.getTime() - 60_000);
+      await db
+        .update(userMilestones)
+        .set({ seenAt })
+        .where(
+          and(
+            eq(userMilestones.userId, alreadyUnlocked.id),
+            eq(userMilestones.milestoneId, milestoneId),
+          ),
+        );
+      const before = await unlockRow(alreadyUnlocked.id, milestoneId);
+
+      const lowered = await request(app)
+        .patch(`/api/admin/milestones/${milestoneId}`)
+        .set("Cookie", adminCookie)
+        .send({ pointsRequired: threshold });
+      expect(lowered.status).toBe(200);
+      expect((lowered.body as MilestoneBody).unlockedCount).toBe(2);
+
+      const newRow = await unlockRow(nowQualifies.id, milestoneId);
+      expect(newRow).toBeDefined();
+      expect(newRow?.seenAt).toBeNull();
+      expect(await unlockRow(stillBelow.id, milestoneId)).toBeUndefined();
+      expect(await unlockRow(alreadyUnlocked.id, milestoneId)).toEqual(before);
+
+      // Raising it back never revokes an unlock — they're historical.
+      const raised = await request(app)
+        .patch(`/api/admin/milestones/${milestoneId}`)
+        .set("Cookie", adminCookie)
+        .send({ pointsRequired: threshold + 200 });
+      expect(raised.status).toBe(200);
+      expect((raised.body as MilestoneBody).unlockedCount).toBe(2);
+    } finally {
+      await cleanup(milestoneId, [alreadyUnlocked, nowQualifies, stillBelow]);
+    }
+  });
+
+  it("reactivating unlocks it for users who passed it while it was inactive", async () => {
+    const level = freshLevel();
+    const threshold = 700_000 + level;
+    const passer = await userWithPoints(threshold - 1);
+    let milestoneId: string | undefined;
+
+    try {
+      const created = await request(app)
+        .post("/api/admin/milestones")
+        .set("Cookie", adminCookie)
+        .send({ levelNumber: level, pointsRequired: threshold, title: "T", message: "m" });
+      milestoneId = (created.body as MilestoneBody).id;
+      const deactivated = await request(app)
+        .post(`/api/admin/milestones/${milestoneId}/deactivate`)
+        .set("Cookie", adminCookie);
+      expect(deactivated.status).toBe(200);
+
+      // Points cross the threshold while it's inactive: the credit path skips it.
+      await db
+        .update(users)
+        .set({ creditPoints: threshold + 1 })
+        .where(eq(users.id, passer.id));
+      expect(await unlockRow(passer.id, milestoneId)).toBeUndefined();
+
+      const reactivated = await request(app)
+        .post(`/api/admin/milestones/${milestoneId}/reactivate`)
+        .set("Cookie", adminCookie);
+      expect(reactivated.status).toBe(200);
+      expect((await unlockRow(passer.id, milestoneId))?.seenAt).toBeNull();
+    } finally {
+      await cleanup(milestoneId, [passer]);
+    }
   });
 });
