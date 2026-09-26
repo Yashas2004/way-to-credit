@@ -98,7 +98,7 @@ export function MilestoneFormModal({ isOpen, onClose, milestone }: MilestoneForm
     >
       <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-4">
         {isEdit && (
-          <p className="rounded-sm bg-paper px-3 py-2 text-small text-slate">
+          <p className="rounded-sm bg-canvas px-3 py-2 text-small text-muted">
             Editing the title, message, or points required never changes any user&apos;s existing
             unlock — it only changes what a future crossing shows.
           </p>
@@ -138,7 +138,7 @@ export function MilestoneFormModal({ isOpen, onClose, milestone }: MilestoneForm
         />
 
         {error && (
-          <p role="alert" className="text-small text-alert">
+          <p role="alert" className="text-small text-negative">
             {error}
           </p>
         )}

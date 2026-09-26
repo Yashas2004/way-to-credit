@@ -143,12 +143,12 @@ export const EditableCell = forwardRef<HTMLButtonElement, EditableCellProps>(fun
         title={disabled ? disabledHint : undefined}
         className={`block w-full rounded-sm px-2 py-1.5 text-left text-body ${
           disabled
-            ? "cursor-not-allowed text-slate/60"
+            ? "cursor-not-allowed text-muted/60"
             : "text-ink hover:bg-ink/5 focus-visible:bg-ink/5"
         }`}
       >
         {isNA ? (
-          <span className="italic text-slate">NA — click to add a description</span>
+          <span className="italic text-muted">NA — click to add a description</span>
         ) : (
           <span className="whitespace-pre-wrap">{value}</span>
         )}
@@ -171,7 +171,7 @@ export const EditableCell = forwardRef<HTMLButtonElement, EditableCellProps>(fun
         maxLength={5000}
         disabled={saving}
         aria-label="Description"
-        className="w-full resize-y rounded-sm border border-slate/40 bg-white px-2 py-1.5 text-body text-ink disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-full resize-y rounded-sm border border-muted/40 bg-white px-2 py-1.5 text-body text-ink disabled:cursor-not-allowed disabled:opacity-60"
       />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -183,13 +183,13 @@ export const EditableCell = forwardRef<HTMLButtonElement, EditableCellProps>(fun
           </Button>
         </div>
         {hasUnsavedDiff && !saving && (
-          <span className="text-small font-medium text-brass">
+          <span className="text-small font-medium text-attention">
             Unsaved — Ctrl/Cmd+Enter or Save
           </span>
         )}
       </div>
       {error && (
-        <p role="alert" className="text-small text-alert">
+        <p role="alert" className="text-small text-negative">
           {error}
         </p>
       )}

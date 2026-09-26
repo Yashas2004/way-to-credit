@@ -14,10 +14,10 @@ export interface BadgeProps {
 }
 
 const TONE_CLASSES: Record<BadgeTone, string> = {
-  success: "bg-moss/10 text-moss",
-  attention: "bg-brass/15 text-brass",
-  negative: "bg-alert/10 text-alert",
-  neutral: "bg-slate/10 text-slate",
+  success: "bg-positive/10 text-positive",
+  attention: "bg-attention/12 text-attention",
+  negative: "bg-negative/10 text-negative",
+  neutral: "bg-muted/10 text-muted",
 };
 
 /**
@@ -35,7 +35,7 @@ export function Badge({ tone, label, position, className = "" }: BadgeProps) {
       <ToneIcon tone={tone} />
       <span>{label}</span>
       {position && (
-        <span className="text-slate">
+        <span className="text-muted">
           ({position.index} of {position.total})
         </span>
       )}

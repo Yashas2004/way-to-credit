@@ -62,7 +62,7 @@ export function UsersPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="font-serif text-h1 text-ink">Users</h1>
-          <p className="mt-1 text-body text-slate">Create, credit, and manage user accounts.</p>
+          <p className="mt-1 text-body text-muted">Create, credit, and manage user accounts.</p>
         </div>
         <Button
           variant="primary"
@@ -131,7 +131,7 @@ export function UsersPage() {
                       label={user.isActive ? "Active" : "Deactivated"}
                     />
                   </TableCell>
-                  <TableCell className="text-small text-slate">
+                  <TableCell className="text-small text-muted">
                     {user.lastSeenAt ? `${formatIstDateTime(user.lastSeenAt)} IST` : "Never"}
                   </TableCell>
                   <TableCell>
@@ -155,7 +155,7 @@ export function UsersPage() {
                       {user.isActive ? (
                         <Button
                           variant="ghost"
-                          className="text-alert"
+                          className="text-negative"
                           onClick={() => {
                             setDeactivateUserRow(user);
                           }}
@@ -320,7 +320,7 @@ function CreateUserModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
         />
 
         {error && (
-          <p role="alert" className="text-small text-alert">
+          <p role="alert" className="text-small text-negative">
             {error}
           </p>
         )}
@@ -391,7 +391,7 @@ function ResetPasswordModal({
         />
 
         {error && (
-          <p role="alert" className="text-small text-alert">
+          <p role="alert" className="text-small text-negative">
             {error}
           </p>
         )}

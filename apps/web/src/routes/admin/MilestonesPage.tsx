@@ -69,7 +69,7 @@ export function MilestonesPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="font-serif text-h1 text-ink">Milestones</h1>
-          <p className="mt-1 text-body text-slate">
+          <p className="mt-1 text-body text-muted">
             Editing a milestone never changes any user&apos;s existing unlock.
           </p>
         </div>
@@ -145,7 +145,7 @@ export function MilestonesPage() {
                       </Button>
                       <Button
                         variant="ghost"
-                        className={m.isActive ? "text-alert" : ""}
+                        className={m.isActive ? "text-negative" : ""}
                         loading={pendingId === m.id}
                         onClick={() => void handleToggleActive(m)}
                       >

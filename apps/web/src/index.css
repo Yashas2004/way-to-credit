@@ -13,13 +13,17 @@
 
 @layer base {
   body {
-    @apply bg-paper font-sans text-body text-ink;
+    @apply bg-canvas font-sans text-body text-ink;
     font-variant-numeric: tabular-nums;
   }
 
   /* One visible-focus treatment, used everywhere via focus-visible — never
-     suppressed. Brass ring reads clearly against both Paper and Maroon. */
+     suppressed. brand-ink on light surfaces; on `deep` (sidebar, login
+     panel) the bright brand cyan, which is what passes there. */
   :focus-visible {
-    @apply outline-none ring-2 ring-brass ring-offset-2 ring-offset-paper;
+    @apply outline-none ring-2 ring-brand-ink ring-offset-2 ring-offset-canvas;
+  }
+  .bg-deep :focus-visible {
+    @apply ring-brand ring-offset-deep;
   }
 }

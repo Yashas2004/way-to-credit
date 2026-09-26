@@ -18,14 +18,14 @@ export function UserShell() {
   const { identity } = useAuth();
 
   return (
-    <div className="min-h-screen bg-paper">
+    <div className="min-h-screen bg-canvas">
       {/*
         Below `sm`, three nav links plus the wordmark, clock, and identity
         menu no longer fit one row — this stacks into two: identity row,
         then a full-width nav row. At `sm` and up it collapses back into
         the single row the design plan specifies.
       */}
-      <header className="flex flex-col border-b border-slate/20 sm:h-14 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <header className="flex flex-col border-b border-muted/20 sm:h-14 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div className="flex h-14 items-center justify-between px-4 sm:h-auto sm:gap-6 sm:px-0">
           <Link to="/user" className="font-serif text-h3 text-ink sm:text-h2">
             Way To Credit
@@ -38,7 +38,7 @@ export function UserShell() {
                 end={item.end}
                 className={({ isActive }) =>
                   `rounded-sm px-2.5 py-1.5 text-body ${
-                    isActive ? "font-medium text-maroon" : "text-slate hover:text-ink"
+                    isActive ? "font-medium text-brand-ink" : "text-muted hover:text-ink"
                   }`
                 }
               >
@@ -52,7 +52,7 @@ export function UserShell() {
           </div>
         </div>
 
-        <nav className="flex items-center justify-between gap-1 border-t border-slate/10 px-2 py-1.5 sm:hidden">
+        <nav className="flex items-center justify-between gap-1 border-t border-muted/10 px-2 py-1.5 sm:hidden">
           {NAV_ITEMS.map((item) => (
             <NavLink
               key={item.to}
@@ -60,7 +60,7 @@ export function UserShell() {
               end={item.end}
               className={({ isActive }) =>
                 `flex-1 rounded-sm px-2 py-1.5 text-center text-small ${
-                  isActive ? "font-medium text-maroon" : "text-slate hover:text-ink"
+                  isActive ? "font-medium text-brand-ink" : "text-muted hover:text-ink"
                 }`
               }
             >

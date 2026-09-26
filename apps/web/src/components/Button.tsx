@@ -9,11 +9,10 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary: "bg-brass text-white hover:bg-brass/90 disabled:bg-brass/50",
-  secondary:
-    "border border-maroon text-maroon bg-transparent hover:bg-maroon/5 disabled:opacity-50",
+  primary: "bg-brand text-ink hover:bg-brand/90 disabled:bg-brand/50 disabled:text-ink/60",
+  secondary: "border border-ink text-ink bg-transparent hover:bg-ink/5 disabled:opacity-50",
   ghost: "text-ink bg-transparent hover:bg-ink/5 disabled:opacity-50",
-  danger: "bg-alert text-white hover:bg-alert/90 disabled:bg-alert/50",
+  danger: "bg-negative text-white hover:bg-negative/90 disabled:bg-negative/50",
 };
 
 /** Loading state keeps the button's width/label slot occupied (an invisible copy of the label) rather than collapsing around the spinner. */
@@ -32,10 +31,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     >
       {loading && (
         <span className="absolute inset-0 flex items-center justify-center">
-          <Spinner
-            size="sm"
-            tone={variant === "secondary" || variant === "ghost" ? "dark" : "light"}
-          />
+          <Spinner size="sm" tone={variant === "danger" ? "light" : "ink"} />
         </span>
       )}
       <span className={loading ? "invisible" : "contents"}>{children}</span>

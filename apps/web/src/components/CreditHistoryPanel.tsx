@@ -36,7 +36,7 @@ export function CreditHistoryPanel({ id, previousThreshold, threshold }: CreditH
     : [];
 
   return (
-    <div id={id} className="mt-3 rounded-sm border border-slate/20 bg-paper/60 px-4 py-3.5">
+    <div id={id} className="mt-3 rounded-sm border border-muted/20 bg-canvas/60 px-4 py-3.5">
       <p className="mb-2 text-small font-medium text-ink">How you earned this</p>
 
       {query.isPending && (
@@ -57,19 +57,19 @@ export function CreditHistoryPanel({ id, previousThreshold, threshold }: CreditH
       )}
 
       {query.isSuccess && contributing.length === 0 && (
-        <p className="text-small text-slate">
+        <p className="text-small text-muted">
           These points came from a credit adjustment rather than a specific query.
         </p>
       )}
 
       {contributing.length > 0 && (
-        <ul className="flex flex-col divide-y divide-slate/15">
+        <ul className="flex flex-col divide-y divide-muted/15">
           {contributing.map((entry) => (
             <li key={entry.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
               <span className="text-small text-ink">
                 {entry.bankNameSnapshot} — {entry.loanTypeNameSnapshot}
               </span>
-              <span className="text-small text-slate">
+              <span className="text-small text-muted">
                 {dateFormatter.format(new Date(entry.createdAt))}
               </span>
             </li>

@@ -9,9 +9,9 @@ import { Button } from "../components/Button";
  */
 export function OutsideWindowPage() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-paper px-6 text-center">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-canvas px-6 text-center">
       <h1 className="font-serif text-h1 text-ink">The portal is currently closed</h1>
-      <p className="max-w-sm text-body text-slate">
+      <p className="max-w-sm text-body text-muted">
         Access is available Mon–Sat, 9:00 AM to 6:00 PM IST. Please come back during those hours.
       </p>
       <Link to="/login">

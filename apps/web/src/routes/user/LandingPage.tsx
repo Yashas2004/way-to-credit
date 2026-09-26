@@ -17,7 +17,7 @@ export function LandingPage() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="font-serif text-h1 text-ink">Welcome back, {firstName}</h1>
-        <p className="mt-1 text-body text-slate">
+        <p className="mt-1 text-body text-muted">
           Look up a loan status, or raise a query if something's missing.
         </p>
       </div>
@@ -46,7 +46,7 @@ export function LandingPage() {
           {rewardsQuery.data.creditPoints === 0 ? (
             <div className="flex flex-col gap-3">
               <h2 className="font-serif text-h2 text-ink">Let's get you started</h2>
-              <p className="text-body text-slate">
+              <p className="text-body text-muted">
                 You haven't earned any credits yet. Every query an admin approves earns you 1 credit
                 point, and every 5 points unlocks a reward on your rewards map.
               </p>
@@ -59,10 +59,10 @@ export function LandingPage() {
           ) : (
             <div className="flex flex-col gap-4">
               <div className="flex items-baseline gap-2">
-                <span className="font-serif text-display text-maroon">
+                <span className="font-serif text-display text-brand-ink">
                   {rewardsQuery.data.creditPoints}
                 </span>
-                <span className="text-body text-slate">
+                <span className="text-body text-muted">
                   credit point{rewardsQuery.data.creditPoints === 1 ? "" : "s"}
                 </span>
               </div>

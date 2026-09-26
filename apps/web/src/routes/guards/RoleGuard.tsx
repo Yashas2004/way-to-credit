@@ -15,7 +15,7 @@ function RoleGuard({ role }: { role: Role }) {
 
   if (status === "loading") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-paper">
+      <div className="flex min-h-screen items-center justify-center bg-canvas">
         <Spinner size="lg" />
       </div>
     );

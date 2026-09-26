@@ -21,27 +21,27 @@ export function HealthCheck() {
   // real router (see App.tsx). Kept working and tested, styled with the
   // real design tokens so nothing in the app references stale classes.
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-paper p-8 text-ink">
+    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-canvas p-8 text-ink">
       <h1 className="font-serif text-h1 font-semibold">Way To Credit</h1>
-      <p className="text-small text-slate">
+      <p className="text-small text-muted">
         Health check via /health (proxied to the Express server)
       </p>
 
       {isPending && <p className="rounded-sm bg-white px-4 py-2">Checking API health…</p>}
 
       {error && (
-        <p className="rounded-sm bg-alert/10 px-4 py-2 text-alert">
+        <p className="rounded-sm bg-negative/10 px-4 py-2 text-negative">
           Could not reach the API: {error.message}
         </p>
       )}
 
       {data && (
         <dl className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-sm bg-white px-6 py-4 font-sans text-body">
-          <dt className="text-slate">status</dt>
+          <dt className="text-muted">status</dt>
           <dd>{data.status}</dd>
-          <dt className="text-slate">uptime</dt>
+          <dt className="text-muted">uptime</dt>
           <dd>{data.uptime.toFixed(2)}s</dd>
-          <dt className="text-slate">version</dt>
+          <dt className="text-muted">version</dt>
           <dd>{data.version}</dd>
         </dl>
       )}

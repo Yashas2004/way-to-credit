@@ -25,16 +25,16 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         id={inputId}
         aria-invalid={error ? true : undefined}
         aria-describedby={[hintId, errorId].filter(Boolean).join(" ") || undefined}
-        className={`rounded-sm border bg-white px-3 py-2 text-body text-ink placeholder:text-slate/60 disabled:cursor-not-allowed disabled:opacity-60 ${error ? "border-alert" : "border-slate/40"} ${className}`}
+        className={`rounded-sm border bg-white px-3 py-2 text-body text-ink placeholder:text-muted/60 disabled:cursor-not-allowed disabled:opacity-60 ${error ? "border-negative" : "border-muted/40"} ${className}`}
         {...rest}
       />
       {hint && !error && (
-        <p id={hintId} className="text-small text-slate">
+        <p id={hintId} className="text-small text-muted">
           {hint}
         </p>
       )}
       {error && (
-        <p id={errorId} className="text-small text-alert">
+        <p id={errorId} className="text-small text-negative">
           {error}
         </p>
       )}

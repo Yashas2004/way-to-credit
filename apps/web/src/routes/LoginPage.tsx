@@ -48,9 +48,9 @@ export function LoginPage() {
 
   return (
     <div className="flex min-h-screen">
-      <div className="hidden w-2/5 flex-col justify-center bg-maroon px-12 py-16 text-paper md:flex">
+      <div className="hidden w-2/5 flex-col justify-center bg-deep px-12 py-16 text-canvas md:flex">
         <h1 className="font-serif text-display font-semibold">Way To Credit</h1>
-        <p className="mt-3 max-w-xs text-body text-paper/70">
+        <p className="mt-3 max-w-xs text-body text-canvas/70">
           Internal loan status &amp; credit portal
         </p>
       </div>
@@ -87,7 +87,7 @@ export function LoginPage() {
             />
 
             {error && (
-              <p role="alert" className="text-body text-alert">
+              <p role="alert" className="text-body text-negative">
                 {error}
               </p>
             )}
@@ -100,7 +100,7 @@ export function LoginPage() {
           {/* Admin forgot-password screen is a later frontend stage — the API
               already supports it (see auth.otp.test.ts), but no route exists
               here yet, so no link is shown rather than shipping a dead one. */}
-          <p className="mt-8 text-small text-slate">Portal hours: Mon–Sat, 9:00 AM – 6:00 PM IST</p>
+          <p className="mt-8 text-small text-muted">Portal hours: Mon–Sat, 9:00 AM – 6:00 PM IST</p>
         </div>
       </div>
     </div>

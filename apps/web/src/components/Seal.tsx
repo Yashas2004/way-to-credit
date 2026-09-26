@@ -37,14 +37,20 @@ export interface SealProps {
   size?: number;
 }
 
-// Warm (earned or about-to-be-earned) vs. cool (locked, not next) — the
-// only colour distinction "quiet" seals get. Same edge, same depth, same
-// drips; just a desaturated, cooler tone instead of a faded one.
-const ACCENT_WARM = "#A9752E";
-const ACCENT_COOL = "#8C8172";
-const EMBLEM_WARM_INTACT = "#8a611f";
-const EMBLEM_WARM_BROKEN = "#6b4b18";
-const EMBLEM_COOL = "#716858";
+// Colours track tailwind.config.js (SVG attributes can't take classes).
+// Earned seals are petrol wax (`deep`) pressed with a bright `brand` cyan
+// emblem — the same cyan-on-petrol pairing as the logo on the sidebar
+// (4.59:1), so an earned seal looks like the brand. The next seal is
+// unbroken light wax edged in `brand-ink`; a locked seal is the same
+// light wax edged in grey-petrol — the only colour distinction "quiet"
+// seals get. Same edge, same depth, same drips; cooler, not faded.
+const ACCENT_NEXT = "#007494"; // brand-ink
+const ACCENT_LOCKED = "#7E8F94";
+const EMBLEM_NEXT = "#007494"; // brand-ink
+const EMBLEM_EARNED = "#00A2D0"; // brand
+const EMBLEM_LOCKED = "#5E7176";
+const PULSE = "#00A2D0"; // brand
+const WAX_EDGE = "#0A232A";
 
 /**
  * The seal art only — purely decorative (aria-hidden, no text content a
@@ -95,8 +101,8 @@ export function Seal({
   const rightDrips = drips.filter((d) => d.angleDeg >= 0);
 
   const cool = weight === "quiet";
-  const accent = cool ? ACCENT_COOL : ACCENT_WARM;
-  const emblemColor = broken ? EMBLEM_WARM_BROKEN : cool ? EMBLEM_COOL : EMBLEM_WARM_INTACT;
+  const accent = cool ? ACCENT_LOCKED : ACCENT_NEXT;
+  const emblemColor = broken ? EMBLEM_EARNED : cool ? EMBLEM_LOCKED : EMBLEM_NEXT;
 
   const transition = animate
     ? { delay: animationDelaySeconds, duration: animationDurationSeconds, ease: "easeOut" as const }
@@ -105,7 +111,7 @@ export function Seal({
   // Only x/y/rotate — colour comes from a fixed gradient fill (see below),
   // never animated, since a piece only ever exists in the DOM once it's
   // already broken (the intact circle is a separate element entirely) —
-  // there's no "was paper, becomes brass" moment to interpolate.
+  // there's no "was light wax, becomes petrol" moment to interpolate.
   const groupVariants = {
     intact: { x: 0, y: 0, rotate: 0 },
     brokenLeft: { x: -7, y: 3.5, rotate: -rotation },
@@ -114,8 +120,8 @@ export function Seal({
 
   const shapeFilterId = `shape-filter-${uid}`;
   const engraveId = `engrave-${uid}`;
-  const paperGradId = `paper-grad-${uid}`;
-  const brassGradId = `brass-grad-${uid}`;
+  const lightGradId = `light-wax-grad-${uid}`;
+  const waxGradId = `petrol-wax-grad-${uid}`;
 
   // transformBox: "view-box" + an explicit transformOrigin in the outer
   // SVG's own coordinate system is what makes rotation pivot around the
@@ -193,7 +199,7 @@ export function Seal({
           />
           <feGaussianBlur in="distorted" stdDeviation={1.6} result="blurredForShadow" />
           <feOffset in="blurredForShadow" dx={1.8} dy={2.8} result="shadowOffset" />
-          <feFlood floodColor="#241D1D" floodOpacity={0.32} result="shadowColor" />
+          <feFlood floodColor="#122226" floodOpacity={0.32} result="shadowColor" />
           <feComposite in="shadowColor" in2="shadowOffset" operator="in" result="shadow" />
           <feMerge>
             <feMergeNode in="shadow" />
@@ -217,7 +223,7 @@ export function Seal({
           <feFlood floodColor="#000000" floodOpacity={0.75} result="shadowColor" />
           <feComposite in="shadowColor" in2="shadowShape" operator="in" result="darkEdge" />
           <feOffset in="blurredAlpha" dx={0.9} dy={0.9} result="highlightShape" />
-          <feFlood floodColor="#fff6e3" floodOpacity={0.55} result="highlightColor" />
+          <feFlood floodColor="#e6f6fb" floodOpacity={0.55} result="highlightColor" />
           <feComposite in="highlightColor" in2="highlightShape" operator="in" result="lightEdge" />
           <feMerge>
             <feMergeNode in="lightEdge" />
@@ -236,15 +242,15 @@ export function Seal({
           in the upper third for the intact circle and for each broken
           piece alike, however that piece has separately rotated.
         */}
-        <radialGradient id={paperGradId} gradientUnits="userSpaceOnUse" cx={-8} cy={-20} r={62}>
-          <stop offset="0%" stopColor="#fcfbf8" />
-          <stop offset="55%" stopColor="#F0EFEC" />
-          <stop offset="100%" stopColor="#d8d4ca" />
+        <radialGradient id={lightGradId} gradientUnits="userSpaceOnUse" cx={-8} cy={-20} r={62}>
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="55%" stopColor="#EDF0F1" />
+          <stop offset="100%" stopColor="#cdd6d9" />
         </radialGradient>
-        <radialGradient id={brassGradId} gradientUnits="userSpaceOnUse" cx={-8} cy={-20} r={62}>
-          <stop offset="0%" stopColor="#dcb073" />
-          <stop offset="45%" stopColor="#b8853a" />
-          <stop offset="100%" stopColor="#84591d" />
+        <radialGradient id={waxGradId} gradientUnits="userSpaceOnUse" cx={-8} cy={-20} r={62}>
+          <stop offset="0%" stopColor="#2f6675" />
+          <stop offset="45%" stopColor="#1a4753" />
+          <stop offset="100%" stopColor="#0c2a32" />
         </radialGradient>
       </defs>
 
@@ -254,7 +260,7 @@ export function Seal({
           cy={CENTER}
           r={RADIUS + 4}
           fill="none"
-          stroke={ACCENT_WARM}
+          stroke={PULSE}
           strokeWidth={2}
           initial={{ opacity: 0.55, scale: 1 }}
           animate={{ opacity: [0.55, 0, 0.55], scale: [1, 1.12, 1] }}
@@ -281,8 +287,8 @@ export function Seal({
               variants={groupVariants}
               transition={transition}
             >
-              <path d={leftD} fill={`url(#${brassGradId})`} stroke="#8a611f" strokeWidth={1.2} />
-              {renderDrips(leftDrips, `url(#${brassGradId})`)}
+              <path d={leftD} fill={`url(#${waxGradId})`} stroke={WAX_EDGE} strokeWidth={1.2} />
+              {renderDrips(leftDrips, `url(#${waxGradId})`)}
             </motion.g>
             <motion.g
               filter={`url(#${shapeFilterId})`}
@@ -292,8 +298,8 @@ export function Seal({
               variants={groupVariants}
               transition={transition}
             >
-              <path d={rightD} fill={`url(#${brassGradId})`} stroke="#8a611f" strokeWidth={1.2} />
-              {renderDrips(rightDrips, `url(#${brassGradId})`)}
+              <path d={rightD} fill={`url(#${waxGradId})`} stroke={WAX_EDGE} strokeWidth={1.2} />
+              {renderDrips(rightDrips, `url(#${waxGradId})`)}
             </motion.g>
           </>
         ) : (
@@ -302,11 +308,11 @@ export function Seal({
               cx={0}
               cy={0}
               r={RADIUS}
-              fill={`url(#${paperGradId})`}
+              fill={`url(#${lightGradId})`}
               stroke={accent}
               strokeWidth={2}
             />
-            {renderDrips(drips, `url(#${paperGradId})`)}
+            {renderDrips(drips, `url(#${lightGradId})`)}
           </g>
         )}
       </g>

@@ -61,7 +61,7 @@ export function CatalogDrawer({ isOpen, onClose, initialTab = "banks" }: Catalog
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Manage catalog" size="lg">
       <div className="flex flex-col gap-5">
-        <div className="flex flex-wrap gap-1 border-b border-slate/15 pb-2">
+        <div className="flex flex-wrap gap-1 border-b border-muted/15 pb-2">
           {TABS.map((t) => (
             <button
               key={t.id}
@@ -70,7 +70,7 @@ export function CatalogDrawer({ isOpen, onClose, initialTab = "banks" }: Catalog
                 setTab(t.id);
               }}
               className={`rounded-sm px-3 py-1.5 text-body font-medium ${
-                tab === t.id ? "bg-maroon text-paper" : "text-ink hover:bg-ink/5"
+                tab === t.id ? "bg-brand text-ink" : "text-ink hover:bg-ink/5"
               }`}
             >
               {t.label}
@@ -251,9 +251,9 @@ function NamedEntitySection({
         </Button>
       </form>
 
-      <ul className="flex flex-col divide-y divide-slate/10 rounded-md border border-slate/20">
+      <ul className="flex flex-col divide-y divide-muted/10 rounded-md border border-muted/20">
         {active.length === 0 && (
-          <li className="px-3 py-4 text-small text-slate">No active {noun}s yet.</li>
+          <li className="px-3 py-4 text-small text-muted">No active {noun}s yet.</li>
         )}
         {active.map((item) => (
           <li key={item.id} className="flex items-center justify-between gap-2 px-3 py-2.5">
@@ -266,7 +266,7 @@ function NamedEntitySection({
                   onChange={(e) => {
                     setEditName(e.target.value);
                   }}
-                  className="flex-1 rounded-sm border border-slate/40 px-2 py-1 text-body text-ink"
+                  className="flex-1 rounded-sm border border-muted/40 px-2 py-1 text-body text-ink"
                 />
                 <Button
                   variant="primary"
@@ -298,7 +298,7 @@ function NamedEntitySection({
                   </Button>
                   <Button
                     variant="ghost"
-                    className="text-alert"
+                    className="text-negative"
                     onClick={() => {
                       setConfirmDeleteId(item.id);
                       setDeleteError(null);
@@ -315,14 +315,14 @@ function NamedEntitySection({
 
       {deleted.length > 0 && (
         <details>
-          <summary className="cursor-pointer text-small font-medium text-slate">
+          <summary className="cursor-pointer text-small font-medium text-muted">
             {deleted.length} deleted {noun}
             {deleted.length === 1 ? "" : "s"}
           </summary>
-          <ul className="mt-2 flex flex-col divide-y divide-slate/10 rounded-md border border-slate/15 bg-paper">
+          <ul className="mt-2 flex flex-col divide-y divide-muted/10 rounded-md border border-muted/15 bg-canvas">
             {deleted.map((item) => (
               <li key={item.id} className="flex items-center justify-between gap-2 px-3 py-2">
-                <span className="text-body text-slate line-through">{item.name}</span>
+                <span className="text-body text-muted line-through">{item.name}</span>
                 <Button variant="ghost" onClick={() => void handleUndelete(item.id)}>
                   Restore
                 </Button>
@@ -499,9 +499,9 @@ function StatusSection() {
         </Button>
       </form>
 
-      <ul className="flex flex-col divide-y divide-slate/10 rounded-md border border-slate/20">
+      <ul className="flex flex-col divide-y divide-muted/10 rounded-md border border-muted/20">
         {active.length === 0 && (
-          <li className="px-3 py-4 text-small text-slate">No active statuses yet.</li>
+          <li className="px-3 py-4 text-small text-muted">No active statuses yet.</li>
         )}
         {active.map((item) => (
           <li key={item.id} className="flex items-center justify-between gap-2 px-3 py-2.5">
@@ -514,7 +514,7 @@ function StatusSection() {
                   onChange={(e) => {
                     setEditName(e.target.value);
                   }}
-                  className="flex-1 rounded-sm border border-slate/40 px-2 py-1 text-body text-ink"
+                  className="flex-1 rounded-sm border border-muted/40 px-2 py-1 text-body text-ink"
                 />
                 <input
                   value={editSortOrder}
@@ -524,7 +524,7 @@ function StatusSection() {
                     // Same whole-number-only rule as IntegerInput.
                     if (/^\d*$/.test(e.target.value)) setEditSortOrder(e.target.value);
                   }}
-                  className="w-20 rounded-sm border border-slate/40 px-2 py-1 text-body text-ink"
+                  className="w-20 rounded-sm border border-muted/40 px-2 py-1 text-body text-ink"
                 />
                 <Button
                   variant="primary"
@@ -556,7 +556,7 @@ function StatusSection() {
                   </Button>
                   <Button
                     variant="ghost"
-                    className="text-alert"
+                    className="text-negative"
                     onClick={() => {
                       setConfirmDeleteId(item.id);
                       setDeleteError(null);
@@ -573,13 +573,13 @@ function StatusSection() {
 
       {deleted.length > 0 && (
         <details>
-          <summary className="cursor-pointer text-small font-medium text-slate">
+          <summary className="cursor-pointer text-small font-medium text-muted">
             {deleted.length} deleted status{deleted.length === 1 ? "" : "es"}
           </summary>
-          <ul className="mt-2 flex flex-col divide-y divide-slate/10 rounded-md border border-slate/15 bg-paper">
+          <ul className="mt-2 flex flex-col divide-y divide-muted/10 rounded-md border border-muted/15 bg-canvas">
             {deleted.map((item) => (
               <li key={item.id} className="flex items-center justify-between gap-2 px-3 py-2">
-                <span className="text-body text-slate line-through">{item.name}</span>
+                <span className="text-body text-muted line-through">{item.name}</span>
                 <Button variant="ghost" onClick={() => void handleUndelete(item.id)}>
                   Restore
                 </Button>
@@ -669,7 +669,7 @@ function AttachmentSection() {
       />
 
       {!bankId && (
-        <p className="text-small text-slate">Choose a bank to manage its attached loan types.</p>
+        <p className="text-small text-muted">Choose a bank to manage its attached loan types.</p>
       )}
 
       {bankId && (loanTypesQuery.isPending || attachedQuery.isPending) && (
@@ -679,9 +679,9 @@ function AttachmentSection() {
       )}
 
       {bankId && loanTypesQuery.data && attachedQuery.data && (
-        <ul className="flex flex-col divide-y divide-slate/10 rounded-md border border-slate/20">
+        <ul className="flex flex-col divide-y divide-muted/10 rounded-md border border-muted/20">
           {loanTypesQuery.data.length === 0 && (
-            <li className="px-3 py-4 text-small text-slate">No active loan types yet.</li>
+            <li className="px-3 py-4 text-small text-muted">No active loan types yet.</li>
           )}
           {loanTypesQuery.data.map((lt) => {
             const attached = attachedIds.has(lt.id);

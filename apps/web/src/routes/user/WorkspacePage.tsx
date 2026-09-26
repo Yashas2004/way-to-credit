@@ -97,7 +97,7 @@ export function WorkspacePage() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="font-serif text-h1 text-ink">Workspace</h1>
-        <p className="mt-1 text-body text-slate">
+        <p className="mt-1 text-body text-muted">
           Choose a bank, loan type, and status to see its description.
         </p>
       </div>
@@ -173,8 +173,8 @@ export function WorkspacePage() {
 
           {descriptionQuery.data &&
             (descriptionQuery.data.body === NA_BODY ? (
-              <div className="flex flex-col items-start gap-3 rounded-sm border border-dashed border-slate/30 px-4 py-5">
-                <p className="text-body text-slate">
+              <div className="flex flex-col items-start gap-3 rounded-sm border border-dashed border-muted/30 px-4 py-5">
+                <p className="text-body text-muted">
                   No description has been added for this status yet.
                 </p>
                 <Button

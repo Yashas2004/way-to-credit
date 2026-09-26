@@ -3,9 +3,9 @@ import { Button } from "../components/Button";
 
 export function NotFoundPage() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-paper px-6 text-center">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-canvas px-6 text-center">
       <h1 className="font-serif text-h1 text-ink">Page not found</h1>
-      <p className="max-w-sm text-body text-slate">
+      <p className="max-w-sm text-body text-muted">
         The page you're looking for doesn't exist, or may have moved.
       </p>
       <Link to="/">

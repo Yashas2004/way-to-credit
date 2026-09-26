@@ -4,7 +4,7 @@ import { apiPost } from "../lib/api";
 
 export interface IdentityMenuProps {
   identity: AuthIdentity;
-  /** Tone flips depending on which shell hosts it — light text on the admin's maroon top bar, dark text on the user shell's paper one. */
+  /** Tone flips depending on which shell hosts it — light text on the admin's deep petrol top bar, dark text on the user shell's canvas one. */
   tone?: "light" | "dark";
 }
 
@@ -45,7 +45,8 @@ export function IdentityMenu({ identity, tone = "dark" }: IdentityMenuProps) {
     }
   }
 
-  const buttonTone = tone === "light" ? "text-paper hover:bg-paper/10" : "text-ink hover:bg-ink/5";
+  const buttonTone =
+    tone === "light" ? "text-canvas hover:bg-canvas/10" : "text-ink hover:bg-ink/5";
 
   return (
     <div className="relative" ref={containerRef}>
@@ -59,16 +60,16 @@ export function IdentityMenu({ identity, tone = "dark" }: IdentityMenuProps) {
         className={`flex items-center gap-2 rounded-sm px-2 py-1 text-body ${buttonTone}`}
       >
         <span className="hidden sm:inline">{identity.displayName}</span>
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brass text-small font-medium text-white">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand text-small font-medium text-ink">
           {identity.displayName.charAt(0).toUpperCase()}
         </span>
       </button>
       {open && (
         <div
           role="menu"
-          className="absolute right-0 z-20 mt-2 w-48 rounded-md border border-slate/20 bg-white py-1 shadow-elevated"
+          className="absolute right-0 z-20 mt-2 w-48 rounded-md border border-muted/20 bg-white py-1 shadow-elevated"
         >
-          <div className="border-b border-slate/10 px-3 py-2 text-small text-slate sm:hidden">
+          <div className="border-b border-muted/10 px-3 py-2 text-small text-muted sm:hidden">
             {identity.displayName}
           </div>
           <button

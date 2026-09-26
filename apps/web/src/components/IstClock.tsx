@@ -32,7 +32,7 @@ export function IstClock({ variant, compact = false }: IstClockProps) {
   return (
     <div
       className={`inline-flex items-center gap-1.5 rounded-sm px-2 py-1 text-body font-medium tabular-nums ${
-        warning ? "bg-alert/10 text-alert" : "text-ink"
+        warning ? "bg-negative/10 text-negative" : "text-ink"
       }`}
       title={fullDisplay}
     >

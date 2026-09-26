@@ -112,7 +112,7 @@ export function QueriesPage() {
     <div className="flex flex-col gap-6 p-6">
       <div>
         <h1 className="font-serif text-h1 text-ink">Query inbox</h1>
-        <p className="mt-1 text-body text-slate">
+        <p className="mt-1 text-body text-muted">
           Approving a query awards the user 1 credit point. Newest first.
         </p>
       </div>
@@ -148,7 +148,7 @@ export function QueriesPage() {
             onChange={(e) => {
               setFromDate(e.target.value);
             }}
-            className="rounded-sm border border-slate/40 bg-white px-3 py-2 text-body text-ink"
+            className="rounded-sm border border-muted/40 bg-white px-3 py-2 text-body text-ink"
           />
         </label>
         <label className="flex flex-col gap-1.5">
@@ -159,13 +159,13 @@ export function QueriesPage() {
             onChange={(e) => {
               setToDate(e.target.value);
             }}
-            className="rounded-sm border border-slate/40 bg-white px-3 py-2 text-body text-ink"
+            className="rounded-sm border border-muted/40 bg-white px-3 py-2 text-body text-ink"
           />
         </label>
       </div>
 
       {dateRangeInvalid && (
-        <p role="alert" className="text-body text-alert">
+        <p role="alert" className="text-body text-negative">
           The From date is after the To date — adjust the range to see results.
         </p>
       )}
@@ -206,7 +206,7 @@ export function QueriesPage() {
       )}
 
       {items.length > 0 && (
-        <ul className="flex flex-col divide-y divide-slate/15">
+        <ul className="flex flex-col divide-y divide-muted/15">
           {items.map((item) => (
             <QueryRow
               key={item.id}
@@ -254,7 +254,7 @@ function QueryRow({
         <Badge tone={STATUS_TONE[item.status]} label={STATUS_LABEL[item.status]} />
       </div>
       <p className="text-body text-ink">{item.message}</p>
-      <p className="text-small text-slate">
+      <p className="text-small text-muted">
         Raised {formatIstDateTime(item.raisedAt)} IST · raised by{" "}
         <span className="font-mono">{item.raisedBy.slice(0, 8)}</span>
       </p>

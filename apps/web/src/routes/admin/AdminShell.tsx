@@ -27,9 +27,9 @@ export function AdminShell() {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-paper">
+    <div className="min-h-screen bg-canvas">
       <div className="flex min-h-screen">
-        <aside className="hidden w-[232px] shrink-0 flex-col bg-maroon px-3 py-5 text-paper lg:flex">
+        <aside className="hidden w-[232px] shrink-0 flex-col bg-deep px-3 py-5 text-canvas lg:flex">
           <div className="mb-6 px-2">
             <span className="font-serif text-h2">Way To Credit</span>
           </div>
@@ -37,7 +37,7 @@ export function AdminShell() {
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex h-14 items-center justify-between border-b border-slate/20 bg-paper px-4">
+          <header className="flex h-14 items-center justify-between border-b border-muted/20 bg-canvas px-4">
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -89,7 +89,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
           onClick={onNavigate}
           className={({ isActive }) =>
             `flex items-center gap-2.5 rounded-sm px-2.5 py-2 text-body ${
-              isActive ? "bg-paper/10 font-medium" : "text-paper/80 hover:bg-paper/5"
+              isActive ? "bg-canvas/10 font-medium" : "text-canvas/80 hover:bg-canvas/5"
             }`
           }
         >
@@ -98,13 +98,13 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
               {/* The exact filled/outline dot vocabulary the treasure map
                   uses for "visited vs. not yet" — same shapes, this scale. */}
               {isActive ? (
-                <svg viewBox="0 0 8 8" className="h-2 w-2 shrink-0 text-brass" aria-hidden="true">
+                <svg viewBox="0 0 8 8" className="h-2 w-2 shrink-0 text-brand" aria-hidden="true">
                   <circle cx="4" cy="4" r="4" fill="currentColor" />
                 </svg>
               ) : (
                 <svg
                   viewBox="0 0 8 8"
-                  className="h-2 w-2 shrink-0 text-paper/40"
+                  className="h-2 w-2 shrink-0 text-canvas/40"
                   aria-hidden="true"
                 >
                   <circle
@@ -143,7 +143,7 @@ function MobileDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () => voi
         aria-modal="true"
         aria-label="Navigation"
         tabIndex={-1}
-        className="relative z-10 flex h-full w-64 flex-col bg-maroon px-3 py-5 text-paper shadow-elevated"
+        className="relative z-10 flex h-full w-64 flex-col bg-deep px-3 py-5 text-canvas shadow-elevated"
       >
         <div className="mb-6 flex items-center justify-between px-2">
           <span className="font-serif text-h2">Way To Credit</span>
@@ -151,7 +151,7 @@ function MobileDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () => voi
             type="button"
             onClick={onClose}
             aria-label="Close navigation"
-            className="rounded-sm p-1.5 hover:bg-paper/10"
+            className="rounded-sm p-1.5 hover:bg-canvas/10"
           >
             <CloseIcon />
           </button>

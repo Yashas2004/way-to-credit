@@ -46,7 +46,7 @@ export function MyQueriesPage() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="font-serif text-h1 text-ink">My queries</h1>
-        <p className="mt-1 text-body text-slate">Newest first.</p>
+        <p className="mt-1 text-body text-muted">Newest first.</p>
       </div>
 
       {query.isPending && (
@@ -79,7 +79,7 @@ export function MyQueriesPage() {
       )}
 
       {items.length > 0 && (
-        <ul className="flex flex-col divide-y divide-slate/15 rounded-md border border-slate/20 bg-white">
+        <ul className="flex flex-col divide-y divide-muted/15 rounded-md border border-muted/20 bg-white">
           {items.map((item) => (
             <li key={item.id} className="flex flex-col gap-2 px-4 py-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -89,12 +89,12 @@ export function MyQueriesPage() {
                 <div className="flex items-center gap-2">
                   <Badge tone={STATUS_TONE[item.status]} label={STATUS_LABEL[item.status]} />
                   {item.status === "approved" && (
-                    <span className="text-small font-medium text-moss">+1 credit</span>
+                    <span className="text-small font-medium text-positive">+1 credit</span>
                   )}
                 </div>
               </div>
               <p className="text-body text-ink">{item.message}</p>
-              <p className="text-small text-slate">
+              <p className="text-small text-muted">
                 Raised {dateFormatter.format(new Date(item.raisedAt))} IST
               </p>
             </li>

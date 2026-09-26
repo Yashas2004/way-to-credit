@@ -63,9 +63,9 @@ export function useToast(): ToastContextValue {
 }
 
 const TONE_CLASSES: Record<ToastTone, string> = {
-  success: "border-moss/30 bg-white",
-  error: "border-alert/30 bg-white",
-  info: "border-slate/30 bg-white",
+  success: "border-positive/30 bg-white",
+  error: "border-negative/30 bg-white",
+  info: "border-muted/30 bg-white",
 };
 
 function ToastItemView({ toast, onDismiss }: { toast: ToastItem; onDismiss: () => void }) {
@@ -78,7 +78,7 @@ function ToastItemView({ toast, onDismiss }: { toast: ToastItem; onDismiss: () =
         type="button"
         onClick={onDismiss}
         aria-label="Dismiss notification"
-        className="rounded-sm px-1 text-slate hover:text-ink"
+        className="rounded-sm px-1 text-muted hover:text-ink"
       >
         ×
       </button>

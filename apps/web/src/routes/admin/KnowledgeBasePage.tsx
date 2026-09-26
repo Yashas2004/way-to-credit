@@ -166,7 +166,7 @@ export function KnowledgeBasePage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="font-serif text-h1 text-ink">Knowledge base</h1>
-          <p className="mt-1 text-body text-slate">
+          <p className="mt-1 text-body text-muted">
             Choose a bank and loan type to view and edit its status descriptions.
           </p>
         </div>
@@ -229,7 +229,7 @@ export function KnowledgeBasePage() {
       {allSelected && gridQuery.data && (
         <div className="flex flex-col gap-4">
           {!gridQuery.data.wired && (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-sm bg-alert/10 px-4 py-3 text-body text-alert">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-sm bg-negative/10 px-4 py-3 text-body text-negative">
               <span>
                 This loan type isn&apos;t attached to this bank yet — editing is disabled.
               </span>
@@ -246,7 +246,7 @@ export function KnowledgeBasePage() {
           )}
 
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-body text-slate">
+            <p className="text-body text-muted">
               {allRows.length} status{allRows.length === 1 ? "" : "es"} ·{" "}
               {naCount === 0
                 ? "all have a description"
@@ -383,7 +383,7 @@ function KnowledgeBaseRow({
           onUnsavedChange={handleUnsavedChange}
         />
       </TableCell>
-      <TableCell className="align-top text-small text-slate">
+      <TableCell className="align-top text-small text-muted">
         {row.updatedAt ? formatIstDateTime(row.updatedAt) : "—"}
       </TableCell>
     </TableRow>

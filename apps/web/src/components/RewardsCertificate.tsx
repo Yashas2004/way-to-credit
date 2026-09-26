@@ -98,15 +98,15 @@ export function RewardsCertificate({
       : `${String((thresholds[heroIndex] ?? 0) - creditPoints)} points to your next seal.`;
 
   return (
-    <div className="rounded-md border border-slate/25 p-1">
-      <div className="rounded-sm border border-brass/25 bg-white px-5 py-8 sm:px-10 sm:py-10">
-        <header className="mb-8 flex flex-col items-center gap-1.5 border-b border-slate/15 pb-6 text-center sm:mb-10 sm:pb-8">
+    <div className="rounded-md border border-muted/25 p-1">
+      <div className="rounded-sm border border-brand-ink/30 bg-surface px-5 py-8 sm:px-10 sm:py-10">
+        <header className="mb-8 flex flex-col items-center gap-1.5 border-b border-muted/15 pb-6 text-center sm:mb-10 sm:pb-8">
           <h1 className="font-serif text-h1 text-ink">{displayName}</h1>
           <p className="text-body-lg text-ink">
-            <span className="font-serif text-h2 text-maroon">{creditPoints}</span> credit point
+            <span className="font-serif text-h2 text-brand-ink">{creditPoints}</span> credit point
             {creditPoints === 1 ? "" : "s"}
           </p>
-          <p className="text-body text-slate">{journeySummary}</p>
+          <p className="text-body text-muted">{journeySummary}</p>
         </header>
 
         <ol className="flex flex-col">
@@ -152,14 +152,14 @@ export function RewardsCertificate({
                   */}
                   {i > 0 && (
                     <div
-                      className="absolute left-1/2 top-0 w-px -translate-x-1/2 bg-slate/25"
+                      className="absolute left-1/2 top-0 w-px -translate-x-1/2 bg-muted/25"
                       style={{ height: half }}
                       aria-hidden="true"
                     />
                   )}
                   {i < milestones.length - 1 && (
                     <div
-                      className="absolute bottom-0 left-1/2 w-px -translate-x-1/2 bg-slate/25"
+                      className="absolute bottom-0 left-1/2 w-px -translate-x-1/2 bg-muted/25"
                       style={{ top: half }}
                       aria-hidden="true"
                     />
@@ -181,7 +181,7 @@ export function RewardsCertificate({
                       className="group relative rounded-full transition-transform duration-150 ease-out hover:-translate-y-1 focus-visible:-translate-y-1 focus-visible:ring-offset-white"
                     >
                       {sealArt}
-                      <span className="pointer-events-none absolute left-1/2 top-full mt-1 w-max -translate-x-1/2 text-small text-slate opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100">
+                      <span className="pointer-events-none absolute left-1/2 top-full mt-1 w-max -translate-x-1/2 text-small text-muted opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100">
                         {isExpanded ? "Hide details" : "View how you earned this"}
                       </span>
                     </button>
@@ -210,25 +210,25 @@ export function RewardsCertificate({
                     )}
                   </div>
 
-                  {unlocked && <p className="mt-1.5 text-body text-slate">{milestone.message}</p>}
+                  {unlocked && <p className="mt-1.5 text-body text-muted">{milestone.message}</p>}
 
                   {!unlocked && isHero && (
                     <div className="mt-3 max-w-xs">
-                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate/15">
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted/15">
                         <div
-                          className="h-full rounded-full bg-brass"
+                          className="h-full rounded-full bg-brand"
                           style={{
                             width: `${String(progressFraction(thresholds, i, creditPoints) * 100)}%`,
                           }}
                         />
                       </div>
-                      <p className="mt-1.5 text-small text-slate">
+                      <p className="mt-1.5 text-small text-muted">
                         {creditPoints} of {milestone.pointsRequired} points
                       </p>
                     </div>
                   )}
 
-                  {!unlocked && !isHero && <p className="mt-1.5 text-body text-slate">Locked</p>}
+                  {!unlocked && !isHero && <p className="mt-1.5 text-body text-muted">Locked</p>}
 
                   {unlocked && isExpanded && (
                     <CreditHistoryPanel

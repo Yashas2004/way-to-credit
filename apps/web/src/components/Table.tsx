@@ -23,7 +23,7 @@ export function TableHead({
   ...rest
 }: HTMLAttributes<HTMLTableSectionElement>) {
   return (
-    <thead className={`border-b border-slate/30 ${className}`} {...rest}>
+    <thead className={`border-b border-muted/30 ${className}`} {...rest}>
       {children}
     </thead>
   );
@@ -47,7 +47,7 @@ export function TableRow({
   ...rest
 }: HTMLAttributes<HTMLTableRowElement>) {
   return (
-    <tr className={`border-b border-slate/10 last:border-0 ${className}`} {...rest}>
+    <tr className={`border-b border-muted/10 last:border-0 ${className}`} {...rest}>
       {children}
     </tr>
   );
@@ -61,7 +61,7 @@ export function TableHeaderCell({
   return (
     <th
       scope="col"
-      className={`px-3 py-2 text-left text-h3 font-semibold text-slate ${className}`}
+      className={`px-3 py-2 text-left text-h3 font-semibold text-muted ${className}`}
       {...rest}
     >
       {children}

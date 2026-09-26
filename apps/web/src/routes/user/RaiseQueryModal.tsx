@@ -82,18 +82,18 @@ export function RaiseQueryModal({ isOpen, onClose, context }: RaiseQueryModalPro
     <Modal isOpen={isOpen} onClose={handleClose} title="Raise a query">
       <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-4">
         {isWarningWindow(new Date()) && (
-          <div className="flex items-center justify-between rounded-sm bg-alert/10 px-3 py-2 text-small text-alert">
+          <div className="flex items-center justify-between rounded-sm bg-negative/10 px-3 py-2 text-small text-negative">
             <span>The portal closes for the day soon — finish and submit when ready.</span>
             <IstClock variant="user" compact />
           </div>
         )}
 
-        <dl className="grid grid-cols-3 gap-x-3 gap-y-1 rounded-sm border border-slate/20 bg-paper px-3 py-2.5 text-small">
-          <dt className="text-slate">Bank</dt>
+        <dl className="grid grid-cols-3 gap-x-3 gap-y-1 rounded-sm border border-muted/20 bg-canvas px-3 py-2.5 text-small">
+          <dt className="text-muted">Bank</dt>
           <dd className="col-span-2 text-ink">{context.bankName}</dd>
-          <dt className="text-slate">Loan type</dt>
+          <dt className="text-muted">Loan type</dt>
           <dd className="col-span-2 text-ink">{context.loanTypeName}</dd>
-          <dt className="text-slate">Status</dt>
+          <dt className="text-muted">Status</dt>
           <dd className="col-span-2 text-ink">{context.statusName}</dd>
         </dl>
 
@@ -110,14 +110,14 @@ export function RaiseQueryModal({ isOpen, onClose, context }: RaiseQueryModalPro
             disabled={submitting}
           />
           {remaining <= COUNTER_THRESHOLD && (
-            <p className="mt-1 text-right text-small text-slate">
+            <p className="mt-1 text-right text-small text-muted">
               {remaining} character{remaining === 1 ? "" : "s"} left
             </p>
           )}
         </div>
 
         {error && (
-          <p role="alert" className="text-small text-alert">
+          <p role="alert" className="text-small text-negative">
             {error}
           </p>
         )}

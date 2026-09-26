@@ -38,7 +38,7 @@ export function ActivityPage() {
     <div className="flex flex-col gap-8 p-6">
       <div>
         <h1 className="font-serif text-h1 text-ink">Activity</h1>
-        <p className="mt-1 text-body text-slate">Login history and who&apos;s online right now.</p>
+        <p className="mt-1 text-body text-muted">Login history and who&apos;s online right now.</p>
       </div>
 
       <ActiveSessionsSection />
@@ -93,7 +93,7 @@ function ActiveSessionsSection() {
                 <TableRow key={s.id}>
                   <TableCell className="font-mono">{s.userId}</TableCell>
                   <TableCell>{s.displayName}</TableCell>
-                  <TableCell className="text-small text-slate">
+                  <TableCell className="text-small text-muted">
                     {s.lastSeenAt ? `${formatIstDateTime(s.lastSeenAt)} IST` : "—"}
                   </TableCell>
                 </TableRow>
@@ -156,7 +156,7 @@ function ActivityLogSection() {
             onChange={(e) => {
               setFromDate(e.target.value);
             }}
-            className="rounded-sm border border-slate/40 bg-white px-3 py-2 text-body text-ink"
+            className="rounded-sm border border-muted/40 bg-white px-3 py-2 text-body text-ink"
           />
         </label>
         <label className="flex flex-col gap-1.5">
@@ -167,13 +167,13 @@ function ActivityLogSection() {
             onChange={(e) => {
               setToDate(e.target.value);
             }}
-            className="rounded-sm border border-slate/40 bg-white px-3 py-2 text-body text-ink"
+            className="rounded-sm border border-muted/40 bg-white px-3 py-2 text-body text-ink"
           />
         </label>
       </div>
 
       {dateRangeInvalid && (
-        <p role="alert" className="text-body text-alert">
+        <p role="alert" className="text-body text-negative">
           The From date is after the To date — adjust the range to see results.
         </p>
       )}
@@ -211,15 +211,15 @@ function ActivityLogSection() {
               <TableRow key={row.id}>
                 <TableCell>
                   {row.actorType === "admin" ? "Admin" : "User"}{" "}
-                  <span className="font-mono text-small text-slate">{row.actorId.slice(0, 8)}</span>
+                  <span className="font-mono text-small text-muted">{row.actorId.slice(0, 8)}</span>
                 </TableCell>
                 <TableCell>
                   <Badge tone={EVENT_TONE[row.event]} label={EVENT_LABEL[row.event]} />
                 </TableCell>
-                <TableCell className="text-small text-slate">
+                <TableCell className="text-small text-muted">
                   {formatIstDateTime(row.occurredAt)} IST
                 </TableCell>
-                <TableCell className="text-small text-slate">{row.ip ?? "—"}</TableCell>
+                <TableCell className="text-small text-muted">{row.ip ?? "—"}</TableCell>
               </TableRow>
             ))}
           </TableBody>

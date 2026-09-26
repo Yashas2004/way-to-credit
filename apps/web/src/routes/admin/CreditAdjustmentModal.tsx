@@ -104,7 +104,7 @@ export function CreditAdjustmentModal({
         />
 
         {error && (
-          <p role="alert" className="text-small text-alert">
+          <p role="alert" className="text-small text-negative">
             {error}
           </p>
         )}

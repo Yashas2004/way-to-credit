@@ -53,7 +53,7 @@ export function Modal({ isOpen, onClose, title, children, size = "md" }: ModalPr
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="absolute right-4 top-4 rounded-sm p-1.5 text-slate hover:bg-ink/5 hover:text-ink"
+          className="absolute right-4 top-4 rounded-sm p-1.5 text-muted hover:bg-ink/5 hover:text-ink"
         >
           <svg viewBox="0 0 20 20" className="h-5 w-5" fill="none" aria-hidden="true">
             <path
