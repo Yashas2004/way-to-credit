@@ -106,4 +106,23 @@ describe("UsersPage", () => {
     expect(secondKey).toBeTruthy();
     expect(firstKey).not.toBe(secondKey);
   });
+
+  // Regression: typing in Display name used to jump focus to User ID on
+  // every keystroke (the focus trap re-ran whenever the modal re-rendered).
+  it("create user: keeps focus in Display name while typing several characters", async () => {
+    mockFetchUsers.mockResolvedValue([USER]);
+    renderPage();
+    await screen.findByText("jdoe");
+
+    fireEvent.click(screen.getByRole("button", { name: "Create user" }));
+    const displayName = await screen.findByLabelText<HTMLInputElement>("Display name");
+    displayName.focus();
+
+    for (const value of ["J", "Ja", "Jan", "Jane"]) {
+      fireEvent.change(displayName, { target: { value } });
+      expect(document.activeElement).toBe(displayName);
+    }
+    expect(displayName.value).toBe("Jane");
+    expect(screen.getByLabelText<HTMLInputElement>("User ID").value).toBe("");
+  });
 });

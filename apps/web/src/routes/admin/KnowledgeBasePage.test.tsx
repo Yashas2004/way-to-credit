@@ -83,6 +83,43 @@ describe("KnowledgeBasePage", () => {
     mockDeleteBank.mockReset();
   });
 
+  // Not a modal, so the focus-trap fix doesn't cover it: the first keystroke
+  // here flips the unsaved flag, which re-renders the whole page — this
+  // checks that re-render never remounts the textarea mid-typing.
+  it("editable cell keeps focus while typing several characters", async () => {
+    mockFetchBanks.mockResolvedValue([BANK]);
+    mockFetchLoanTypesForBank.mockResolvedValue([LOAN_TYPE]);
+    mockFetchDescriptionGrid.mockResolvedValue({
+      wired: true,
+      rows: [
+        {
+          statusId: "st-1",
+          statusName: "Login",
+          sortOrder: 1,
+          body: "Old text",
+          updatedAt: null,
+          updatedBy: null,
+        },
+      ],
+    });
+
+    renderPage();
+    await screen.findByRole("option", { name: "Bank A" });
+    fireEvent.change(screen.getByLabelText("Bank"), { target: { value: "bank-1" } });
+    await screen.findByRole("option", { name: "Home Loan" });
+    fireEvent.change(screen.getByLabelText("Loan type"), { target: { value: "lt-1" } });
+    fireEvent.click(await screen.findByRole("button", { name: "Old text" }));
+
+    const textarea = await screen.findByLabelText<HTMLTextAreaElement>("Description");
+    expect(document.activeElement).toBe(textarea);
+    for (const value of ["N", "Ne", "New", "New text"]) {
+      fireEvent.change(textarea, { target: { value } });
+      expect(document.activeElement).toBe(textarea);
+      expect(screen.getByLabelText("Description")).toBe(textarea); // same node, never remounted
+    }
+    expect(screen.getByText(/Unsaved/)).toBeInTheDocument();
+  });
+
   it("loads a bank+loan-type pair and saves an edited description via PUT, toasting success", async () => {
     mockFetchBanks.mockResolvedValue([BANK]);
     mockFetchLoanTypesForBank.mockResolvedValue([LOAN_TYPE]);
