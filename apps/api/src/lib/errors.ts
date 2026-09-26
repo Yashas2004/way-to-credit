@@ -70,6 +70,12 @@ export class AlreadyAttachedError extends AppError {
   readonly code = "ALREADY_ATTACHED";
 }
 
+/** A write targets a bank + loan type that isn't in bank_loan_types — the row it would create could never be shown or exported. */
+export class PairNotAttachedError extends AppError {
+  readonly statusCode = 409;
+  readonly code = "PAIR_NOT_ATTACHED";
+}
+
 /** A `SELECT ... FOR UPDATE` hit `lock_timeout` — see CLAUDE.md invariant #18. */
 export class ResourceBusyError extends AppError {
   readonly statusCode = 409;

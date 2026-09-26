@@ -2,7 +2,7 @@ import { db } from "../../db/client.js";
 import { descriptions } from "../../db/schema/index.js";
 import { recordAudit } from "../../lib/audit.js";
 import { invalidateDescriptionTreeCache } from "../../lib/cache.js";
-import { NotFoundError } from "../../lib/errors.js";
+import { NotFoundError, PairNotAttachedError } from "../../lib/errors.js";
 import { runLockedTransaction } from "../../lib/lockedTransaction.js";
 import * as banksRepo from "../banks/banks.repo.js";
 import * as loanTypesRepo from "../loanTypes/loanTypes.repo.js";
@@ -40,7 +40,22 @@ export async function upsertDescription(
     if (!status || status.deletedAt) {
       throw new NotFoundError("Status not found.");
     }
-    await descriptionsRepo.findBankLoanTypePairForUpdate(tx, input.bankId, input.loanTypeId);
+    // The pair must actually be attached. The admin grid disables editing
+    // for an unattached pair, but that's UI, not enforcement — without this
+    // the API accepted a description no user could ever see and no export
+    // would include. Holding the pair's row lock for the rest of the
+    // transaction also means a concurrent detach waits, then sees this new
+    // description and is blocked by its own dependent-descriptions guard.
+    const pair = await descriptionsRepo.findBankLoanTypePairForUpdate(
+      tx,
+      input.bankId,
+      input.loanTypeId,
+    );
+    if (!pair) {
+      throw new PairNotAttachedError(
+        `${loanType.name} isn't attached to ${bank.name}. Attach it first, then add descriptions.`,
+      );
+    }
 
     const before = await descriptionsRepo.findDescriptionByTriple(
       tx,
