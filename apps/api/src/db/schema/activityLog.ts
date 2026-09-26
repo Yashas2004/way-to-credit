@@ -9,7 +9,10 @@ export const activityLog = pgTable(
     actorId: uuid("actor_id").notNull(),
     actorType: actorTypeEnum("actor_type").notNull(),
     event: activityEventEnum("event").notNull(),
-    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+    // precision 3 (ms): the keyset cursor round-trips through a JS Date — see queries.raisedAt.
+    occurredAt: timestamp("occurred_at", { withTimezone: true, precision: 3 })
+      .notNull()
+      .defaultNow(),
     ip: text("ip"),
     userAgent: text("user_agent"),
   },

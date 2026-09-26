@@ -28,7 +28,11 @@ export const queries = pgTable(
     statusNameSnapshot: text("status_name_snapshot").notNull(),
     message: text("message").notNull(),
     status: queryStatusEnum("status").notNull().default("pending"),
-    raisedAt: timestamp("raised_at", { withTimezone: true }).notNull().defaultNow(),
+    // precision 3 (ms), not the default 6 (µs): keyset cursors carry this
+    // value through a JS Date, which only holds milliseconds — at µs precision
+    // the page-boundary comparison ran against a truncated value and could
+    // skip (desc) or repeat (asc) rows sharing the boundary row's millisecond.
+    raisedAt: timestamp("raised_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
     resolvedAt: timestamp("resolved_at", { withTimezone: true }),
     resolvedBy: uuid("resolved_by").references(() => admins.id, { onDelete: "restrict" }),
   },

@@ -13,7 +13,8 @@ export const creditTransactions = pgTable(
     delta: integer("delta").notNull(),
     reason: text("reason").notNull(),
     queryId: uuid("query_id").references(() => queries.id, { onDelete: "restrict" }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // precision 3 (ms): the keyset cursor round-trips through a JS Date — see queries.raisedAt.
+    createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
   },
   (table) => [
     index("credit_transactions_user_id_idx").on(table.userId),

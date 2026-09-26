@@ -209,6 +209,14 @@ CI runs `typecheck`, `lint`, `test`, and `build`. All four must pass before merg
 
 ---
 
+## Deployment
+
+- **Migration `0002` locks three tables while it runs.** It changes `queries.raised_at`,
+  `activity_log.occurred_at`, and `credit_transactions.created_at` to millisecond precision,
+  which rewrites each table and blocks all reads and writes on it for the duration. Fine while
+  these tables are small; if they grow substantially before first deploy, apply it in a
+  maintenance window.
+
 ## Testing expectations
 
 - Every service function with branching logic gets a unit test.
