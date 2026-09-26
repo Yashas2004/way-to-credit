@@ -2,6 +2,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { NavLink, Outlet } from "react-router-dom";
 import { IstClock } from "../../components/IstClock";
+import { Logo } from "../../components/Logo";
 import { useAuth } from "../../lib/auth";
 import { useDensity } from "../../lib/useDensity";
 import { useFocusTrap } from "../../lib/useFocusTrap";
@@ -32,7 +33,8 @@ export function AdminShell() {
     <div className="min-h-screen bg-canvas">
       <div className="flex min-h-screen">
         <aside className="hidden w-[232px] shrink-0 flex-col bg-deep px-3 py-5 text-canvas lg:flex">
-          <div className="mb-6 px-2">
+          <div className="mb-6 flex items-center gap-2.5 px-2">
+            <Logo size={36} />
             <span className="font-serif text-h2">Way To Credit</span>
           </div>
           <SidebarNav />
@@ -51,7 +53,10 @@ export function AdminShell() {
               >
                 <MenuIcon />
               </button>
-              <span className="font-serif text-h2 text-ink lg:hidden">Way To Credit</span>
+              <span className="flex items-center gap-2 lg:hidden">
+                <Logo size={28} />
+                <span className="font-serif text-h2 text-ink">Way To Credit</span>
+              </span>
             </div>
             <div className="flex items-center gap-3">
               <span className="hidden sm:inline">
@@ -148,7 +153,10 @@ function MobileDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () => voi
         className="relative z-10 flex h-full w-64 flex-col bg-deep px-3 py-5 text-canvas shadow-elevated"
       >
         <div className="mb-6 flex items-center justify-between px-2">
-          <span className="font-serif text-h2">Way To Credit</span>
+          <span className="flex items-center gap-2.5">
+            <Logo size={36} />
+            <span className="font-serif text-h2">Way To Credit</span>
+          </span>
           <button
             type="button"
             onClick={onClose}

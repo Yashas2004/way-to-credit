@@ -1,5 +1,6 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { IstClock } from "../../components/IstClock";
+import { Logo } from "../../components/Logo";
 import { useAuth } from "../../lib/auth";
 import { useDensity } from "../../lib/useDensity";
 import { IdentityMenu } from "../IdentityMenu";
@@ -29,8 +30,12 @@ export function UserShell() {
       */}
       <header className="flex flex-col border-b border-muted/20 sm:h-14 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div className="flex h-14 items-center justify-between px-4 sm:h-auto sm:gap-6 sm:px-0">
-          <Link to="/user" className="font-serif text-h3 text-ink sm:text-h2">
-            Way To Credit
+          {/* Mobile: the mark alone (28px); the wordmark stays in the
+              accessibility tree via sr-only so the link keeps its name. */}
+          <Link to="/user" className="flex items-center gap-2.5 font-serif text-h2 text-ink">
+            <Logo size={32} className="hidden sm:block" />
+            <Logo size={28} className="sm:hidden" />
+            <span className="sr-only sm:not-sr-only">Way To Credit</span>
           </Link>
           <nav className="hidden items-center gap-1 sm:flex">
             {NAV_ITEMS.map((item) => (

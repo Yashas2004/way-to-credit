@@ -5,6 +5,7 @@ import { Button } from "../components/Button";
 import { Input } from "../components/Input";
 import { ApiError, apiPost, isOutsideAccessWindowError } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { Logo } from "../components/Logo";
 
 export function LoginPage() {
   const { refetch } = useAuth();
@@ -49,6 +50,7 @@ export function LoginPage() {
   return (
     <div className="flex min-h-screen">
       <div className="hidden w-2/5 flex-col justify-center bg-deep px-12 py-16 text-canvas md:flex">
+        <Logo size={72} className="mb-6" />
         <h1 className="font-serif text-display font-semibold">Way To Credit</h1>
         <p className="mt-3 max-w-xs text-body text-canvas/70">
           Internal loan status &amp; credit portal
@@ -57,6 +59,10 @@ export function LoginPage() {
 
       <div className="flex flex-1 flex-col items-center justify-center px-6 py-16">
         <div className="w-full max-w-sm">
+          <div className="mb-8 flex items-center gap-3 md:hidden">
+            <Logo size={40} />
+            <span className="font-serif text-h2 text-ink">Way To Credit</span>
+          </div>
           <h2 className="font-serif text-h1 text-ink">Sign in</h2>
 
           <form
