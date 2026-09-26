@@ -39,11 +39,18 @@ export function ConfirmDialog({
     }
   }
 
+  // X, Escape, and backdrop all route here — none of them may close the
+  // dialog while the confirmed action is still in flight.
+  function handleClose() {
+    if (submitting) return;
+    onClose();
+  }
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title}>
+    <Modal isOpen={isOpen} onClose={handleClose} title={title}>
       <p className="text-body text-ink">{description}</p>
       <div className="mt-5 flex justify-end gap-2">
-        <Button type="button" variant="ghost" onClick={onClose} disabled={submitting}>
+        <Button type="button" variant="ghost" onClick={handleClose} disabled={submitting}>
           Cancel
         </Button>
         <Button

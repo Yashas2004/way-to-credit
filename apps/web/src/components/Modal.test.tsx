@@ -56,6 +56,22 @@ describe("Modal", () => {
     expect(second.value).toBe("Jane");
   });
 
+  it("closes via the X button, Escape, and a backdrop click", () => {
+    const onClose = vi.fn();
+    render(<TwoFieldForm onClose={onClose} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    fireEvent.keyDown(screen.getByLabelText("First"), { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(2);
+
+    const backdrop = document.querySelector('[aria-hidden="true"].absolute.inset-0');
+    if (!backdrop) throw new Error("backdrop not rendered");
+    fireEvent.click(backdrop);
+    expect(onClose).toHaveBeenCalledTimes(3);
+  });
+
   it("with two dialogs open, Escape closes only the one that has focus", () => {
     const closeOuter = vi.fn();
     const closeInner = vi.fn();
