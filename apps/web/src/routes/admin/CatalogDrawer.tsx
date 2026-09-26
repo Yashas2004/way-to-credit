@@ -5,6 +5,7 @@ import { Button } from "../../components/Button";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { ErrorState } from "../../components/ErrorState";
 import { Input } from "../../components/Input";
+import { IntegerInput } from "../../components/IntegerInput";
 import { Modal } from "../../components/Modal";
 import { Select } from "../../components/Select";
 import { Spinner } from "../../components/Spinner";
@@ -482,13 +483,10 @@ function StatusSection() {
           />
         </div>
         <div className="w-28">
-          <Input
+          <IntegerInput
             label="Sort order"
-            type="number"
             value={newSortOrder}
-            onChange={(e) => {
-              setNewSortOrder(e.target.value);
-            }}
+            onValueChange={setNewSortOrder}
             disabled={creating}
           />
         </div>
@@ -520,9 +518,11 @@ function StatusSection() {
                 />
                 <input
                   value={editSortOrder}
-                  type="number"
+                  inputMode="numeric"
+                  aria-label="Sort order"
                   onChange={(e) => {
-                    setEditSortOrder(e.target.value);
+                    // Same whole-number-only rule as IntegerInput.
+                    if (/^\d*$/.test(e.target.value)) setEditSortOrder(e.target.value);
                   }}
                   className="w-20 rounded-sm border border-slate/40 px-2 py-1 text-body text-ink"
                 />
@@ -544,10 +544,7 @@ function StatusSection() {
               </div>
             ) : (
               <>
-                <span className="text-body text-ink">
-                  {item.name}{" "}
-                  <span className="text-small text-slate">(order {item.sortOrder})</span>
-                </span>
+                <span className="text-body text-ink">{item.name}</span>
                 <div className="flex items-center gap-1.5">
                   <Button
                     variant="ghost"

@@ -37,8 +37,11 @@ import {
   fetchBanks,
   fetchDescriptionGrid,
   fetchLoanTypesForBank,
+  fetchStatuses,
   upsertDescription,
 } from "../../lib/adminApi";
+
+const mockFetchStatuses = vi.mocked(fetchStatuses);
 
 const mockFetchBanks = vi.mocked(fetchBanks);
 const mockFetchLoanTypesForBank = vi.mocked(fetchLoanTypesForBank);
@@ -81,6 +84,7 @@ describe("KnowledgeBasePage", () => {
     mockFetchDescriptionGrid.mockReset();
     mockUpsertDescription.mockReset();
     mockDeleteBank.mockReset();
+    mockFetchStatuses.mockReset();
   });
 
   // Not a modal, so the focus-trap fix doesn't cover it: the first keystroke
@@ -118,6 +122,72 @@ describe("KnowledgeBasePage", () => {
       expect(screen.getByLabelText("Description")).toBe(textarea); // same node, never remounted
     }
     expect(screen.getByText(/Unsaved/)).toBeInTheDocument();
+  });
+
+  it("summarises the pair as a total status count plus how many still need a description", async () => {
+    mockFetchBanks.mockResolvedValue([BANK]);
+    mockFetchLoanTypesForBank.mockResolvedValue([LOAN_TYPE]);
+    mockFetchDescriptionGrid.mockResolvedValue({
+      wired: true,
+      rows: [
+        {
+          statusId: "st-1",
+          statusName: "Login",
+          sortOrder: 1,
+          body: "Text",
+          updatedAt: null,
+          updatedBy: null,
+        },
+        {
+          statusId: "st-2",
+          statusName: "Sanctioned",
+          sortOrder: 2,
+          body: "NA",
+          updatedAt: null,
+          updatedBy: null,
+        },
+        {
+          statusId: "st-3",
+          statusName: "Closed",
+          sortOrder: 3,
+          body: "NA",
+          updatedAt: null,
+          updatedBy: null,
+        },
+      ],
+    });
+
+    renderPage();
+    await screen.findByRole("option", { name: "Bank A" });
+    fireEvent.change(screen.getByLabelText("Bank"), { target: { value: "bank-1" } });
+    await screen.findByRole("option", { name: "Home Loan" });
+    fireEvent.change(screen.getByLabelText("Loan type"), { target: { value: "lt-1" } });
+
+    expect(await screen.findByText(/3 statuses · 2 still need a description/)).toBeInTheDocument();
+    expect(screen.queryByText(/still marked NA/)).not.toBeInTheDocument();
+  });
+
+  it("the catalog's Statuses tab shows each name without the internal sort-order number", async () => {
+    mockFetchBanks.mockResolvedValue([BANK]);
+    mockFetchStatuses.mockResolvedValue([
+      {
+        id: "st-1",
+        name: "Sanctioned",
+        sortOrder: 4,
+        deletedAt: null,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ]);
+
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "Manage catalog" }));
+    const catalog = await screen.findByRole("dialog", { name: "Manage catalog" });
+    fireEvent.click(within(catalog).getByRole("button", { name: "Statuses" }));
+
+    expect(await within(catalog).findByText("Sanctioned")).toBeInTheDocument();
+    expect(within(catalog).queryByText(/order 4/)).not.toBeInTheDocument();
+    expect(within(catalog).getByRole("button", { name: "Close" })).toBeInTheDocument();
   });
 
   it("loads a bank+loan-type pair and saves an edited description via PUT, toasting success", async () => {

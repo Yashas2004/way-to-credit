@@ -247,7 +247,10 @@ export function KnowledgeBasePage() {
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-body text-slate">
-              {naCount} of {allRows.length} status{allRows.length === 1 ? "" : "es"} still marked NA
+              {allRows.length} status{allRows.length === 1 ? "" : "es"} ·{" "}
+              {naCount === 0
+                ? "all have a description"
+                : `${String(naCount)} still need${naCount === 1 ? "s" : ""} a description`}
             </p>
             <label className="flex items-center gap-2 text-body text-ink">
               <input
