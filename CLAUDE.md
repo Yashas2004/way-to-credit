@@ -227,6 +227,52 @@ CI runs `typecheck`, `lint`, `test`, and `build`. All four must pass before merg
   these tables are small; if they grow substantially before first deploy, apply it in a
   maintenance window.
 
+### Checklist: production database role (do before go-live, verify after every migration)
+
+Invariant 15 (append-only `audit_log`) and the query timeouts are only real if production
+uses a dedicated application role. Local dev can't enforce them: `devuser` is a superuser,
+and superusers and table **owners** bypass `GRANT`/`REVOKE` entirely. Managed providers'
+default roles (`neondb_owner`, Supabase's `postgres`) own every table, so the app must not
+connect as them.
+
+- [ ] Two roles: an owner that runs migrations (e.g. `wtc_owner`), and the role the app's
+      `DATABASE_URL` uses (e.g. `wtc_app`), which owns nothing and is `NOSUPERUSER
+    NOBYPASSRLS`.
+- [ ] Grants, run as `wtc_owner` after migrations:
+
+  ```sql
+  GRANT USAGE ON SCHEMA public TO wtc_app;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO wtc_app;
+  -- audit_log is append-only: INSERT and SELECT, nothing else.
+  REVOKE UPDATE, DELETE, TRUNCATE ON audit_log FROM wtc_app;
+  -- Tables created by future migrations get the same defaults...
+  ALTER DEFAULT PRIVILEGES FOR ROLE wtc_owner IN SCHEMA public
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO wtc_app;
+  -- ...so re-run the REVOKE above whenever a migration recreates audit_log.
+  ```
+
+- [ ] Timeouts on the role, run as the provider's admin role (`ALTER ROLE` needs
+      `CREATEROLE`, which the owner role shouldn't have). `lib/db.ts` also sets these per
+      connection, but behind a transaction-mode pooler a session `SET` isn't guaranteed to
+      stick; the role setting always applies. The API logs a warning at boot if
+      `statement_timeout` reads as 0.
+
+  ```sql
+  ALTER ROLE wtc_app SET statement_timeout = '5s';
+  ALTER ROLE wtc_app SET idle_in_transaction_session_timeout = '10s';
+  ```
+
+- [ ] Verify, connected **as `wtc_app`**:
+
+  ```sql
+  SELECT privilege_type FROM information_schema.role_table_grants
+   WHERE grantee = 'wtc_app' AND table_name = 'audit_log';  -- exactly INSERT, SELECT
+  SELECT tableowner FROM pg_tables WHERE tablename = 'audit_log';  -- not wtc_app
+  SELECT rolsuper FROM pg_roles WHERE rolname = current_user;      -- f
+  SHOW statement_timeout;                                          -- 5s
+  DELETE FROM audit_log WHERE false;  -- must fail: permission denied
+  ```
+
 ## Testing expectations
 
 - Every service function with branching logic gets a unit test.
