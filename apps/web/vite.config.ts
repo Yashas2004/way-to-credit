@@ -19,6 +19,10 @@ export default defineConfig({
     environment: "jsdom",
     globals: false,
     setupFiles: ["./src/test/setup.ts"],
+    // Above the 5 s async-wait budget (src/test/setup.ts), so a slow wait
+    // fails on its own assertion rather than the whole test being killed at
+    // Vitest's 5 s default first.
+    testTimeout: 15_000,
     include: ["src/**/*.test.{ts,tsx}"],
   },
 });

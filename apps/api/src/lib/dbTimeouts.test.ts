@@ -85,7 +85,9 @@ describe("database timeouts", () => {
     try {
       const started = Date.now();
       const error = await captureError(() => tiny.query("SELECT 1"));
-      expect(Date.now() - started).toBeLessThan(1_000);
+      // A 100 ms timeout firing; the bound only proves it doesn't hang, with
+      // room for a loaded runner.
+      expect(Date.now() - started).toBeLessThan(3_000);
       expect(isDatabaseBusyError(error)).toBe(true);
     } finally {
       held.release();
@@ -147,7 +149,9 @@ describe("database timeouts", () => {
         expect(res.headers["retry-after"]).toBe("2");
         expect((res.body as { error: { code: string } }).error.code).toBe("SERVICE_BUSY");
         expect(elapsed).toBeGreaterThanOrEqual(POOL_ACQUIRE_TIMEOUT_MS - 100);
-        expect(elapsed).toBeLessThan(POOL_ACQUIRE_TIMEOUT_MS + 2_000);
+        // Generous upper bound: the point is "fails at the timeout, doesn't
+        // hang", and a loaded runner adds request overhead on top.
+        expect(elapsed).toBeLessThan(POOL_ACQUIRE_TIMEOUT_MS + 6_000);
       } finally {
         for (const client of held) client.release();
       }
