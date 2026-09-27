@@ -237,7 +237,7 @@ connect as them.
 
 - [ ] Two roles: an owner that runs migrations (e.g. `wtc_owner`), and the role the app's
       `DATABASE_URL` uses (e.g. `wtc_app`), which owns nothing and is `NOSUPERUSER
-    NOBYPASSRLS`.
+  NOBYPASSRLS`.
 - [ ] Grants, run as `wtc_owner` after migrations:
 
   ```sql
@@ -285,6 +285,26 @@ connect as them.
   - cache invalidation after an admin write
 - Tests run against a real Postgres from `docker-compose`, not mocks. Reset with a
   transaction rollback or truncation between tests.
+- **A test must create every piece of state it depends on.** Test files share one database and
+  one Redis, and run in whatever order Vitest picks, so a test can pass only because
+  another file happened to run first, or because the local dev DB is seeded (CI migrates but
+  never seeds). Then it isn't testing what it claims, and it breaks when order or data
+  changes. This has happened twice:
+  - `descriptionTree.test.ts` relied on seeded statuses, so it passed locally and failed in CI.
+  - The cache "write then read" test relied on another file having created `tree:version`.
+    That hid a real invalidation bug until the file was run on its own.
+
+  In review, run a new or changed test file **on its own against an unseeded database**
+  (`pnpm --filter api exec vitest run <file>`; for an unseeded database like CI's, run
+  `docker compose down -v`, then `pnpm db:migrate` without seeding, which wipes local
+  data). If a test needs a precondition such as "this
+  key is absent" or "no statuses exist", set it explicitly in the test: delete the key, or
+  soft-delete inside a rolled-back transaction. Never inherit it.
+
+- **Timing:** async waits (`findBy*`/`waitFor`) default to 5 s (web `src/test/setup.ts`) and
+  tests to 15 s. Don't tighten those per test. Assert "fails fast" with generous upper bounds,
+  since CI runners are often loaded and a test that fails only sometimes gets ignored rather
+  than investigated.
 
 ---
 
