@@ -1,0 +1,2 @@
+ALTER TABLE "sessions" ADD COLUMN "compromised_at" timestamp with time zone;--> statement-breakpoint
+CREATE INDEX "sessions_superseded_expires_idx" ON "sessions" USING btree ("expires_at") WHERE "sessions"."id" <> "sessions"."family_id" AND "sessions"."compromised_at" IS NULL;

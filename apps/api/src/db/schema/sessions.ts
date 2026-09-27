@@ -16,6 +16,10 @@ export const sessions = pgTable(
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }).notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    // Set on every row of a family when refresh-token reuse (theft) is
+    // detected. The whole family is then security evidence: exempt from the
+    // short retention of superseded refresh rows (sessionRetention.service.ts).
+    compromisedAt: timestamp("compromised_at", { withTimezone: true }),
     ip: text("ip"),
     userAgent: text("user_agent"),
   },
@@ -28,6 +32,12 @@ export const sessions = pgTable(
     // retention job deletes by this expression (sessionRetention.service.ts),
     // so it's indexed as exactly that expression.
     index("sessions_ended_at_idx").on(sql`coalesce(${table.revokedAt}, ${table.expiresAt})`),
+    // Superseded refresh rows (not the family's first row, not compromised),
+    // purged a few days after their token expires. Partial, so it indexes
+    // only the rows that rule can ever delete.
+    index("sessions_superseded_expires_idx")
+      .on(table.expiresAt)
+      .where(sql`${table.id} <> ${table.familyId} AND ${table.compromisedAt} IS NULL`),
     // The admin "active sessions" list: live user sessions only. Partial, so
     // it stays a few hundred entries however many ended sessions are retained.
     index("sessions_active_user_expires_idx")

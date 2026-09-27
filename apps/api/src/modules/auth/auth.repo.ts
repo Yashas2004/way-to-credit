@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, lt, ne, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne, sql, type SQL } from "drizzle-orm";
 import { activityLog, admins, sessions, users } from "../../db/schema/index.js";
 import type { DbOrTx } from "../../db/types.js";
 import type { Role } from "../../lib/jwt.js";
@@ -78,11 +78,21 @@ export async function revokeSession(db: DbOrTx, id: string): Promise<void> {
     .where(and(eq(sessions.id, id), isNull(sessions.revokedAt)));
 }
 
-export async function revokeSessionFamily(db: DbOrTx, familyId: string): Promise<void> {
+/**
+ * Refresh-token reuse (theft) response: revokes every still-live row of the
+ * family and stamps `compromisedAt` on *every* row, including ones already
+ * rotated out, so the whole family keeps full-length retention as security
+ * evidence. Existing revocation times are preserved.
+ */
+export async function revokeCompromisedSessionFamily(
+  db: DbOrTx,
+  familyId: string,
+  at: Date,
+): Promise<void> {
   await db
     .update(sessions)
-    .set({ revokedAt: new Date() })
-    .where(and(eq(sessions.familyId, familyId), isNull(sessions.revokedAt)));
+    .set({ revokedAt: sql`coalesce(${sessions.revokedAt}, ${at})`, compromisedAt: at })
+    .where(eq(sessions.familyId, familyId));
 }
 
 /** Same guarded-update idiom as users.repo.ts's revokeAllActiveSessionsForUser, but for admins and unconditional (used by the OTP reset flow, which has no "current session" to spare). */
@@ -132,23 +142,24 @@ export async function logActivity(db: DbOrTx, entry: ActivityLogEntry): Promise<
 }
 
 /**
- * Deletes up to `batchSize` sessions that ended (revoked, or else expired)
- * before `cutoff`. `FOR UPDATE SKIP LOCKED` makes concurrent callers — two
- * API instances running the retention job at once — take disjoint batches
- * instead of blocking on, or double-deleting, the same rows. Each call is
- * its own short statement, so no lock is held across batches.
+ * The two retention rules' batch deletes (see sessionRetention.service.ts).
+ * `FOR UPDATE SKIP LOCKED` makes concurrent callers — two API instances
+ * running the job at once — take disjoint batches instead of blocking on,
+ * or double-deleting, the same rows; it also means a row being marked
+ * compromised at that instant is skipped, not deleted. Each call is one
+ * short statement, so no lock is held across batches.
  */
-export async function deleteSessionsEndedBefore(
+async function deleteBatch(
   db: DbOrTx,
-  cutoff: Date,
+  where: SQL,
+  orderBy: SQL,
   batchSize: number,
 ): Promise<number> {
-  const endedAt = sql`coalesce(${sessions.revokedAt}, ${sessions.expiresAt})`;
   const batch = db
     .select({ id: sessions.id })
     .from(sessions)
-    .where(lt(endedAt, cutoff))
-    .orderBy(endedAt)
+    .where(where)
+    .orderBy(orderBy)
     .limit(batchSize)
     .for("update", { skipLocked: true });
   const deleted = await db
@@ -156,4 +167,37 @@ export async function deleteSessionsEndedBefore(
     .where(inArray(sessions.id, batch))
     .returning({ id: sessions.id });
   return deleted.length;
+}
+
+/** Superseded refresh rows — not a family's first row, family not compromised — whose token expired before `cutoff`. */
+export function deleteSupersededRefreshRowsExpiredBefore(
+  db: DbOrTx,
+  cutoff: Date,
+  batchSize: number,
+): Promise<number> {
+  return deleteBatch(
+    db,
+    sql`${sessions.id} <> ${sessions.familyId} AND ${sessions.compromisedAt} IS NULL AND ${sessions.expiresAt} < ${cutoff}`,
+    sql`${sessions.expiresAt}`,
+    batchSize,
+  );
+}
+
+/**
+ * Everything else that ended before `cutoff`: a family's first row (the
+ * login), and every row of a compromised family, measured from when the
+ * family was marked compromised (every row in it had ended by then).
+ */
+export function deleteLongRetentionRowsEndedBefore(
+  db: DbOrTx,
+  cutoff: Date,
+  batchSize: number,
+): Promise<number> {
+  const endedAt = sql`coalesce(${sessions.revokedAt}, ${sessions.expiresAt})`;
+  return deleteBatch(
+    db,
+    sql`${endedAt} < ${cutoff} AND (${sessions.compromisedAt} IS NULL OR ${sessions.compromisedAt} < ${cutoff})`,
+    endedAt,
+    batchSize,
+  );
 }

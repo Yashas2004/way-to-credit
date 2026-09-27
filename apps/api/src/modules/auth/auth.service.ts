@@ -172,11 +172,13 @@ export async function refresh(
   }
 
   if (session.revokedAt !== null) {
-    // A revoked refresh token was replayed: theft. Revoke the whole family.
+    // A revoked refresh token was replayed: theft. Revoke the whole family
+    // and mark all of it compromised, so it's kept as evidence for the full
+    // retention period (sessionRetention.service.ts).
     const role: Role = session.userId ? "user" : "admin";
     const actorId = session.userId ?? session.adminId;
     await db.transaction(async (tx) => {
-      await authRepo.revokeSessionFamily(tx, session.familyId);
+      await authRepo.revokeCompromisedSessionFamily(tx, session.familyId, now);
       if (actorId) {
         await authRepo.logActivity(tx, {
           actorId,
