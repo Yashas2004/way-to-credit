@@ -143,60 +143,68 @@ export async function clearLoginAttempts(identifier: string): Promise<void> {
   }
 }
 
-const QUERY_RATE_WINDOW_SECONDS = 60 * 60;
-const QUERY_RATE_MAX_PER_WINDOW = 10;
-
-function queryRateKey(userId: string): string {
-  return `query:rate:${userId}`;
+export interface UserRateLimitOptions {
+  /** Redis key prefix; the user id is appended. */
+  keyPrefix: string;
+  max: number;
+  windowSeconds: number;
+  /** Shown to the user in the 429 body. */
+  message: string;
+  /** For the fail-open log line. */
+  label: string;
 }
 
 /**
- * 10 queries per user per hour, window anchored at each user's first
- * request in it (not wall-clock-aligned) — same INCR+EXPIRE-on-first-hit
- * shape as the login IP counter above. Runs before body validation, so a
- * malformed/invalid attempt still consumes budget, matching how
- * `loginRateLimit` runs first in `auth.routes.ts`. On Redis error: fail
- * open with a warning log and no secondary in-process fallback — unlike
- * login, this route is already behind `requireAuth`+`timeWindow`+
- * `requireRole`, so the unauthenticated brute-force risk that justifies
- * login's extra fallback layer doesn't apply here.
+ * Per-user request limit for authenticated user routes: `max` requests per
+ * `windowSeconds`, the window anchored at each user's first request in it
+ * (not wall-clock-aligned) — same INCR+EXPIRE-on-first-hit shape as the
+ * login IP counter above. Mount it before body validation, so a malformed
+ * attempt still consumes budget, matching how `loginRateLimit` runs first
+ * in `auth.routes.ts`. On Redis error: fail open with a warning log and no
+ * in-process fallback — these routes are already behind
+ * `requireAuth`+`timeWindow`+`requireRole`, so the unauthenticated
+ * brute-force risk that justifies login's fallback doesn't apply. One
+ * implementation for every such limit (queries, help requests), not one
+ * per feature.
  */
-export async function queryRateLimit(
-  req: Request,
-  _res: Response,
-  next: NextFunction,
-): Promise<void> {
-  const userId = req.auth?.sub;
-  if (!userId) {
-    next();
-    return;
-  }
-
-  try {
-    const key = queryRateKey(userId);
-    const count = await redis.incr(key);
-    if (count === 1) {
-      await redis.expire(key, QUERY_RATE_WINDOW_SECONDS);
-    }
-    if (count > QUERY_RATE_MAX_PER_WINDOW) {
-      const ttl = await redis.ttl(key);
-      next(
-        new TooManyRequestsError(
-          "Too many queries raised. Try again later.",
-          ttl > 0 ? ttl : QUERY_RATE_WINDOW_SECONDS,
-        ),
-      );
+export function userRateLimit(options: UserRateLimitOptions) {
+  return async function rateLimit(req: Request, _res: Response, next: NextFunction): Promise<void> {
+    const userId = req.auth?.sub;
+    if (!userId) {
+      next();
       return;
     }
-    next();
-  } catch (error) {
-    logger.warn(
-      { err: error, userId },
-      "Redis unreachable during query rate-limit check — failing open",
-    );
-    next();
-  }
+
+    try {
+      const key = `${options.keyPrefix}:${userId}`;
+      const count = await redis.incr(key);
+      if (count === 1) {
+        await redis.expire(key, options.windowSeconds);
+      }
+      if (count > options.max) {
+        const ttl = await redis.ttl(key);
+        next(new TooManyRequestsError(options.message, ttl > 0 ? ttl : options.windowSeconds));
+        return;
+      }
+      next();
+    } catch (error) {
+      logger.warn(
+        { err: error, userId },
+        `Redis unreachable during ${options.label} rate-limit check — failing open`,
+      );
+      next();
+    }
+  };
 }
+
+/** 10 queries per user per hour. Key unchanged (`query:rate:<userId>`). */
+export const queryRateLimit = userRateLimit({
+  keyPrefix: "query:rate",
+  max: 10,
+  windowSeconds: 60 * 60,
+  message: "Too many queries raised. Try again later.",
+  label: "query",
+});
 
 const FORGOT_PASSWORD_IP_WINDOW_SECONDS = 60 * 60;
 const FORGOT_PASSWORD_IP_MAX = 5; // "5 per IP per hour"
