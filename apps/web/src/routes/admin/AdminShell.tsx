@@ -1,8 +1,10 @@
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { NavLink, Outlet } from "react-router-dom";
 import { IstClock } from "../../components/IstClock";
 import { Logo } from "../../components/Logo";
+import { fetchAdminIssueUnreadCount } from "../../lib/adminApi";
 import { useAuth } from "../../lib/auth";
 import { useDensity } from "../../lib/useDensity";
 import { useFocusTrap } from "../../lib/useFocusTrap";
@@ -13,6 +15,7 @@ const NAV_ITEMS = [
   { to: "/admin/knowledge", label: "Knowledge Base", end: false },
   { to: "/admin/users", label: "Users", end: false },
   { to: "/admin/queries", label: "Queries", end: false },
+  { to: "/admin/help", label: "Help requests", end: false },
   { to: "/admin/milestones", label: "Milestones", end: false },
   { to: "/admin/activity", label: "Activity", end: false },
 ];
@@ -125,6 +128,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                 </svg>
               )}
               <span>{item.label}</span>
+              {item.to === "/admin/help" && <HelpUnreadBadge />}
             </>
           )}
         </NavLink>
@@ -196,5 +200,32 @@ function CloseIcon() {
         strokeLinecap="round"
       />
     </svg>
+  );
+}
+
+/**
+ * This admin's unread help requests (a user wrote something they haven't
+ * seen), on the same 30-second poll as the dashboard. Rendered in both the
+ * sidebar and the mobile drawer; TanStack dedupes the request. The count is
+ * announced as text, not just shown.
+ */
+function HelpUnreadBadge() {
+  const unread = useQuery({
+    queryKey: ["admin", "issues", "unread-count"],
+    queryFn: fetchAdminIssueUnreadCount,
+    refetchInterval: 30_000,
+  });
+  const count = unread.data?.count ?? 0;
+  if (count === 0) return null;
+  return (
+    <>
+      <span
+        aria-hidden="true"
+        className="ml-auto min-w-5 rounded-full bg-brand px-1.5 text-center text-small font-medium text-ink"
+      >
+        {count}
+      </span>
+      <span className="sr-only">, {count} unread</span>
+    </>
   );
 }

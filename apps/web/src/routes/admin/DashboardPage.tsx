@@ -82,6 +82,24 @@ export function DashboardPage() {
             <span className="text-small text-muted">Needs admin action</span>
           </Link>
 
+          {/* Help requests whose next move is an admin's: someone is waiting.
+              Same rule as pending queries — amber only when non-zero. */}
+          <Link
+            to="/admin/help?status=awaiting_admin"
+            className="flex flex-col justify-center gap-1 rounded-sm pr-6 hover:bg-ink/5 sm:border-r sm:border-muted/15"
+          >
+            <span
+              data-testid="awaiting-issue-count"
+              className={`text-h1 font-serif tabular-nums ${
+                statsQuery.data.awaitingAdminIssueCount > 0 ? "text-attention" : "text-ink"
+              }`}
+            >
+              {statsQuery.data.awaitingAdminIssueCount}
+            </span>
+            <span className="text-body font-medium text-ink">Awaiting reply</span>
+            <span className="text-small text-muted">Help requests</span>
+          </Link>
+
           <div className="grid flex-1 grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4 sm:pl-6">
             <Stat label="Total users" value={statsQuery.data.totalUsers} />
             <Stat label="Active (5 min)" value={statsQuery.data.activeUsersLast5Minutes} />

@@ -1,4 +1,8 @@
 import type {
+  AdminIssueThread,
+  AdminListIssuesResponse,
+  IssueStatusFilter,
+  IssueUnreadCount,
   ActiveSessionsResponse,
   ActivityLogResponse,
   AdjustCreditsRequest,
@@ -215,4 +219,45 @@ export function fetchActivityLog(params: {
 }
 export function fetchActiveSessions(): Promise<ActiveSessionsResponse> {
   return apiGet<ActiveSessionsResponse>("/api/admin/sessions/active");
+}
+
+// ---- help requests ----------------------------------------------------------
+
+export function fetchAdminIssues(params: {
+  status?: IssueStatusFilter;
+  userId?: string;
+  limit?: number;
+  cursor?: string;
+}): Promise<AdminListIssuesResponse> {
+  const search = new URLSearchParams();
+  if (params.status) search.set("status", params.status);
+  if (params.userId) search.set("userId", params.userId);
+  if (params.limit !== undefined) search.set("limit", String(params.limit));
+  if (params.cursor) search.set("cursor", params.cursor);
+  const qs = search.toString();
+  return apiGet<AdminListIssuesResponse>(`/api/admin/issues${qs ? `?${qs}` : ""}`);
+}
+
+export function fetchAdminIssueUnreadCount(): Promise<IssueUnreadCount> {
+  return apiGet<IssueUnreadCount>("/api/admin/issues/unread-count");
+}
+
+export function fetchAdminIssueThread(id: string): Promise<AdminIssueThread> {
+  return apiGet<AdminIssueThread>(`/api/admin/issues/${id}`);
+}
+
+export function replyToIssueAsAdmin(id: string, body: string): Promise<AdminIssueThread> {
+  return apiPost<AdminIssueThread>(`/api/admin/issues/${id}/messages`, { body });
+}
+
+export function resolveIssue(id: string): Promise<AdminIssueThread> {
+  return apiPost<AdminIssueThread>(`/api/admin/issues/${id}/resolve`);
+}
+
+export function reopenIssue(id: string): Promise<AdminIssueThread> {
+  return apiPost<AdminIssueThread>(`/api/admin/issues/${id}/reopen`);
+}
+
+export async function markIssueReadAsAdmin(id: string, upTo: string): Promise<void> {
+  await apiPost<undefined>(`/api/admin/issues/${id}/read`, { upTo });
 }

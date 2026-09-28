@@ -7,6 +7,8 @@ import { queryClient } from "./lib/queryClient";
 import { ActivityPage } from "./routes/admin/ActivityPage";
 import { AdminShell } from "./routes/admin/AdminShell";
 import { DashboardPage } from "./routes/admin/DashboardPage";
+import { HelpInboxPage } from "./routes/admin/HelpInboxPage";
+import { AdminHelpThreadPage } from "./routes/admin/HelpThreadPage";
 import { KnowledgeBasePage } from "./routes/admin/KnowledgeBasePage";
 import { MilestonesPage } from "./routes/admin/MilestonesPage";
 import { QueriesPage } from "./routes/admin/QueriesPage";
@@ -59,6 +61,8 @@ export function App() {
                   <Route path="knowledge" element={<KnowledgeBasePage />} />
                   <Route path="users" element={<UsersPage />} />
                   <Route path="queries" element={<QueriesPage />} />
+                  <Route path="help" element={<HelpInboxPage />} />
+                  <Route path="help/:id" element={<AdminHelpThreadPage />} />
                   <Route path="milestones" element={<MilestonesPage />} />
                   <Route path="activity" element={<ActivityPage />} />
                 </Route>

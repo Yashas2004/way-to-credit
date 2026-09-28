@@ -20,13 +20,13 @@ const mockFetchStats = vi.mocked(fetchStats);
 vi.mocked(fetchActivityLog).mockResolvedValue({ items: [], nextCursor: null });
 vi.mocked(fetchAdminQueries).mockResolvedValue({ items: [], nextCursor: null });
 
-function renderWithPending(pendingQueryCount: number) {
+function renderWithPending(pendingQueryCount: number, awaitingAdminIssueCount = 0) {
   mockFetchStats.mockResolvedValue({
     totalUsers: 3,
     activeUsersLast5Minutes: 0,
     totalBanks: 4,
     pendingQueryCount,
-    awaitingAdminIssueCount: 0,
+    awaitingAdminIssueCount,
     totalCreditsIssued: 5,
   });
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -57,5 +57,20 @@ describe("DashboardPage pending-query count", () => {
     const count = await screen.findByTestId("pending-query-count");
     expect(count).toHaveTextContent("2");
     expect(count.className).toContain("text-attention");
+  });
+
+  it("shows help requests awaiting a reply beside pending queries: amber only when non-zero, linking to that filter", async () => {
+    renderWithPending(0, 3);
+    const count = await screen.findByTestId("awaiting-issue-count");
+    expect(count).toHaveTextContent("3");
+    expect(count.className).toContain("text-attention");
+    expect(count.closest("a")).toHaveAttribute("href", "/admin/help?status=awaiting_admin");
+  });
+
+  it("shows zero help requests awaiting a reply as neutral", async () => {
+    renderWithPending(0, 0);
+    const count = await screen.findByTestId("awaiting-issue-count");
+    expect(count.className).toContain("text-ink");
+    expect(count.className).not.toContain("text-attention");
   });
 });
