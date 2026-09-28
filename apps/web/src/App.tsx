@@ -17,6 +17,8 @@ import { LoginPage } from "./routes/LoginPage";
 import { NotFoundPage } from "./routes/NotFoundPage";
 import { OutsideWindowPage } from "./routes/OutsideWindowPage";
 import { LandingPage } from "./routes/user/LandingPage";
+import { HelpListPage } from "./routes/user/HelpListPage";
+import { HelpThreadPage } from "./routes/user/HelpThreadPage";
 import { MyQueriesPage } from "./routes/user/MyQueriesPage";
 import { RewardsPage } from "./routes/user/RewardsPage";
 import { UserShell } from "./routes/user/UserShell";
@@ -68,6 +70,8 @@ export function App() {
                   <Route path="workspace" element={<WorkspacePage />} />
                   <Route path="queries" element={<MyQueriesPage />} />
                   <Route path="rewards" element={<RewardsPage />} />
+                  <Route path="help" element={<HelpListPage />} />
+                  <Route path="help/:id" element={<HelpThreadPage />} />
                 </Route>
               </Route>
 

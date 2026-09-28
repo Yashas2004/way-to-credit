@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { UserTreeResponse } from "@way-to-credit/shared";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../components/Toast";
 import { WorkspacePage } from "./WorkspacePage";
@@ -53,9 +54,11 @@ function renderWorkspace() {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <ToastProvider>
-        <WorkspacePage />
-      </ToastProvider>
+      <MemoryRouter>
+        <ToastProvider>
+          <WorkspacePage />
+        </ToastProvider>
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -159,5 +162,13 @@ describe("WorkspacePage", () => {
     expect(
       screen.queryByText("No description has been added for this status yet."),
     ).not.toBeInTheDocument();
+    // Says what a query is for, and points everything else to help requests.
+    expect(
+      screen.getByText(/if an admin approves it, you earn a credit point/),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "ask for help" })).toHaveAttribute(
+      "href",
+      "/user/help",
+    );
   });
 });

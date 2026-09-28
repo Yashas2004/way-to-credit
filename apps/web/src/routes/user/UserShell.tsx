@@ -1,8 +1,10 @@
+import { useQuery } from "@tanstack/react-query";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { IstClock } from "../../components/IstClock";
 import { Logo } from "../../components/Logo";
 import { useAuth } from "../../lib/auth";
 import { useDensity } from "../../lib/useDensity";
+import { fetchIssueUnreadCount } from "../../lib/userApi";
 import { IdentityMenu } from "../IdentityMenu";
 
 const NAV_ITEMS = [
@@ -54,6 +56,7 @@ export function UserShell() {
             ))}
           </nav>
           <div className="flex items-center gap-3 sm:hidden">
+            <HelpButton />
             <IstClock variant="user" compact />
             {identity && <IdentityMenu identity={identity} tone="dark" />}
           </div>
@@ -77,6 +80,7 @@ export function UserShell() {
         </nav>
 
         <div className="hidden items-center gap-3 sm:flex">
+          <HelpButton />
           <IstClock variant="user" />
           {identity && <IdentityMenu identity={identity} tone="dark" />}
         </div>
@@ -88,5 +92,44 @@ export function UserShell() {
         </div>
       </main>
     </div>
+  );
+}
+
+/**
+ * Help requests live behind this header button on every user page, with an
+ * unread badge on the same 30-second poll as everything else (it pauses in
+ * a hidden tab). The count is also announced as text, not just shown.
+ */
+function HelpButton() {
+  const unread = useQuery({
+    queryKey: ["user", "issues", "unread-count"],
+    queryFn: fetchIssueUnreadCount,
+    refetchInterval: 30_000,
+  });
+  const count = unread.data?.count ?? 0;
+  return (
+    <NavLink
+      to="/user/help"
+      className={({ isActive }) =>
+        `inline-flex items-center gap-1.5 rounded-sm border px-2.5 py-1 text-small font-medium ${
+          isActive ? "border-brand-ink text-brand-ink" : "border-muted/40 text-ink hover:bg-ink/5"
+        }`
+      }
+    >
+      Help
+      {count > 0 && (
+        <>
+          <span
+            aria-hidden="true"
+            className="min-w-5 rounded-full bg-brand px-1.5 text-center text-small text-ink"
+          >
+            {count}
+          </span>
+          <span className="sr-only">
+            , {count} unread repl{count === 1 ? "y" : "ies"}
+          </span>
+        </>
+      )}
+    </NavLink>
   );
 }

@@ -1,5 +1,9 @@
 import type {
+  CreateIssueRequest,
   CreditHistoryResponse,
+  IssueThread,
+  IssueUnreadCount,
+  ListIssuesResponse,
   DescriptionLookupResponse,
   ListQueriesResponse,
   QueryRow,
@@ -55,4 +59,37 @@ export function fetchCreditHistory(params: {
   if (params.cursor) search.set("cursor", params.cursor);
   const qs = search.toString();
   return apiGet<CreditHistoryResponse>(`/api/user/me/credits/history${qs ? `?${qs}` : ""}`);
+}
+
+// ---- help requests ----------------------------------------------------------
+
+export function fetchOwnIssues(params: {
+  limit?: number;
+  cursor?: string;
+}): Promise<ListIssuesResponse> {
+  const search = new URLSearchParams();
+  if (params.limit !== undefined) search.set("limit", String(params.limit));
+  if (params.cursor) search.set("cursor", params.cursor);
+  const qs = search.toString();
+  return apiGet<ListIssuesResponse>(`/api/user/issues${qs ? `?${qs}` : ""}`);
+}
+
+export function fetchIssueUnreadCount(): Promise<IssueUnreadCount> {
+  return apiGet<IssueUnreadCount>("/api/user/issues/unread-count");
+}
+
+export function createIssue(input: CreateIssueRequest): Promise<IssueThread> {
+  return apiPost<IssueThread>("/api/user/issues", input);
+}
+
+export function fetchIssueThread(id: string): Promise<IssueThread> {
+  return apiGet<IssueThread>(`/api/user/issues/${id}`);
+}
+
+export function replyToIssue(id: string, body: string): Promise<IssueThread> {
+  return apiPost<IssueThread>(`/api/user/issues/${id}/messages`, { body });
+}
+
+export async function markIssueRead(id: string, upTo: string): Promise<void> {
+  await apiPost<undefined>(`/api/user/issues/${id}/read`, { upTo });
 }

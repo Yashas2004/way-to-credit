@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Badge } from "../../components/Badge";
 import { Button } from "../../components/Button";
 import { Card } from "../../components/Card";
@@ -185,6 +186,7 @@ export function WorkspacePage() {
                 >
                   Raise a query
                 </Button>
+                <QueryHelperLine />
               </div>
             ) : (
               <div className="flex flex-col items-start gap-4">
@@ -199,6 +201,7 @@ export function WorkspacePage() {
                 >
                   Raise a query
                 </Button>
+                <QueryHelperLine />
               </div>
             ))}
         </Card>
@@ -214,5 +217,22 @@ export function WorkspacePage() {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * Tells "raise a query" apart from a help request at the point of choice:
+ * a query is about this one description, and can earn a credit point.
+ */
+function QueryHelperLine() {
+  return (
+    <p className="max-w-[66ch] text-small text-muted">
+      Is this description wrong or missing something? Raise a query: if an admin approves it, you
+      earn a credit point. For anything else,{" "}
+      <Link to="/user/help" className="text-brand-ink underline">
+        ask for help
+      </Link>
+      .
+    </p>
   );
 }
