@@ -181,6 +181,29 @@ rejects a change with `ERRCODE restrict_violation` (SQLSTATE `23001`) and the me
     whenever it's active. It must **never** be honoured in production — do not widen the
     `NODE_ENV` check, and do not set `FAKE_NOW` in any deployed environment's config.
 
+### Help requests
+
+25. Help requests (`modules/issues`) are a **permanent record**. Their rules are deliberate
+    product decisions, not gaps waiting to be filled:
+    - **Messages are immutable.** A sent message, or a resolve/reopen event, is never
+      edited or deleted. A correction is a new message. **Requests are never deleted**, only
+      their status changes. Both rules are enforced by `forbid_change()` triggers (see
+      **Append-only tables** above), not just by the code.
+    - **Resolved requests stay resolved indefinitely.** There's no auto-close, "closed"
+      state, archiving or expiry after any period. Don't add a cleanup job. Any reply
+      reopens a resolved request.
+    - **Only users raise requests; admins only respond.** There are no admin-to-admin
+      threads. `requireRole("user")` on the create route enforces it, and
+      `userStageAccessControl.test.ts` pins it.
+    - **A user sees only their own requests.** Every user query is scoped to `raised_by`,
+      and another user's request returns the same 404 as a nonexistent one.
+    - **Writes to a request serialise** on its row lock (`SELECT … FOR UPDATE` in
+      `runLockedTransaction`), and entries are stamped with `clock_timestamp()`, so thread
+      order is commit order. `last_activity_at` only moves forward, which is what keeps
+      the keyset pages from repeating a row.
+    - **Out of scope, deliberately:** attachments, email/SMS notification and real-time
+      push. Unread counts ride the 30-second poll.
+
 ---
 
 ## Commands
