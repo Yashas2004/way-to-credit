@@ -4,14 +4,7 @@ import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createApp } from "../../app.js";
 import { db } from "../../db/client.js";
-import {
-  auditLog,
-  banks,
-  bankLoanTypes,
-  descriptions,
-  loanTypes,
-  statuses,
-} from "../../db/schema/index.js";
+import { banks, bankLoanTypes, descriptions, loanTypes, statuses } from "../../db/schema/index.js";
 import { invalidateDescriptionTreeCache } from "../../lib/cache.js";
 import {
   createTestAdmin,
@@ -162,7 +155,6 @@ describe("user lookup API", () => {
       .where(
         and(eq(bankLoanTypes.bankId, bankId), eq(bankLoanTypes.loanTypeId, deletedLoanTypeId)),
       );
-    await db.delete(auditLog).where(eq(auditLog.actorId, admin.id));
     await db.delete(banks).where(eq(banks.id, bankId));
     await db.delete(banks).where(eq(banks.id, deletedBankId));
     await db.delete(loanTypes).where(eq(loanTypes.id, loanTypeId));

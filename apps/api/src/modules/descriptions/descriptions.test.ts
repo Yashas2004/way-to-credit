@@ -51,7 +51,6 @@ describe("descriptions admin API", () => {
       .delete(descriptions)
       .where(and(eq(descriptions.bankId, bankId), eq(descriptions.loanTypeId, loanTypeId)));
     await db.delete(bankLoanTypes).where(eq(bankLoanTypes.bankId, bankId));
-    await db.delete(auditLog).where(eq(auditLog.actorId, admin.id));
     await db.delete(banks).where(eq(banks.id, bankId));
     await db.delete(loanTypes).where(eq(loanTypes.id, loanTypeId));
     await db.delete(statuses).where(eq(statuses.id, statusId));

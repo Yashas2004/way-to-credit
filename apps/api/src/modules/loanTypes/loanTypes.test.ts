@@ -22,10 +22,8 @@ describe("loan types admin API", () => {
   afterAll(async () => {
     for (const id of createdIds) {
       await db.delete(descriptions).where(eq(descriptions.loanTypeId, id));
-      await db.delete(auditLog).where(eq(auditLog.entityId, id));
       await db.delete(loanTypes).where(eq(loanTypes.id, id));
     }
-    await db.delete(auditLog).where(eq(auditLog.actorId, admin.id));
     await deleteTestAdmin(admin.id);
   });
 

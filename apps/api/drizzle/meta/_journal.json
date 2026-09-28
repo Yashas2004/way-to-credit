@@ -36,6 +36,20 @@
       "when": 1790499240673,
       "tag": "0004_exotic_white_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790617425632,
+      "tag": "0005_issues",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790617429360,
+      "tag": "0006_issue_immutability",
+      "breakpoints": true
     }
   ]
 }

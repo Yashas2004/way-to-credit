@@ -43,7 +43,6 @@ describe("bank-loan-type wiring admin API", () => {
     await db
       .delete(bankLoanTypes)
       .where(and(eq(bankLoanTypes.bankId, bankId), eq(bankLoanTypes.loanTypeId, loanTypeId)));
-    await db.delete(auditLog).where(eq(auditLog.actorId, admin.id));
     await db.delete(banks).where(eq(banks.id, bankId));
     await db.delete(loanTypes).where(eq(loanTypes.id, loanTypeId));
     await deleteTestAdmin(admin.id);
@@ -61,17 +60,32 @@ describe("bank-loan-type wiring admin API", () => {
     expect(duplicate.status).toBe(409);
     expect((duplicate.body as { error: { code: string } }).error.code).toBe("ALREADY_ATTACHED");
 
-    // Two audit rows per attach — one keyed by bankId, one by loanTypeId.
+    // Two audit rows per attach — one keyed by bankId, one by loanTypeId —
+    // and none for the rejected duplicate. The bank and loan type are fresh
+    // to this test and audit_log is append-only (never cleared), so exact
+    // counts scoped to this test's own admin are knowable.
     const bankAudits = await db
       .select()
       .from(auditLog)
-      .where(and(eq(auditLog.entityId, bankId), eq(auditLog.action, "attach")));
+      .where(
+        and(
+          eq(auditLog.entityId, bankId),
+          eq(auditLog.action, "attach"),
+          eq(auditLog.actorId, admin.id),
+        ),
+      );
     const loanTypeAudits = await db
       .select()
       .from(auditLog)
-      .where(and(eq(auditLog.entityId, loanTypeId), eq(auditLog.action, "attach")));
-    expect(bankAudits.length).toBeGreaterThanOrEqual(1);
-    expect(loanTypeAudits.length).toBeGreaterThanOrEqual(1);
+      .where(
+        and(
+          eq(auditLog.entityId, loanTypeId),
+          eq(auditLog.action, "attach"),
+          eq(auditLog.actorId, admin.id),
+        ),
+      );
+    expect(bankAudits).toHaveLength(1);
+    expect(loanTypeAudits).toHaveLength(1);
 
     const detach = await request(app)
       .delete(`/api/admin/banks/${bankId}/loan-types/${loanTypeId}`)

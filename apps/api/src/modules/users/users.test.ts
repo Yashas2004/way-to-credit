@@ -33,10 +33,8 @@ describe("users admin API", () => {
     vi.useRealTimers();
     for (const id of createdUserIds) {
       await db.delete(sessions).where(eq(sessions.userId, id));
-      await db.delete(auditLog).where(eq(auditLog.entityId, id));
       await db.delete(users).where(eq(users.id, id));
     }
-    await db.delete(auditLog).where(eq(auditLog.actorId, admin.id));
     await deleteTestAdmin(admin.id);
   });
 

@@ -22,10 +22,8 @@ describe("banks admin API", () => {
   afterAll(async () => {
     for (const id of createdBankIds) {
       await db.delete(descriptions).where(eq(descriptions.bankId, id));
-      await db.delete(auditLog).where(eq(auditLog.entityId, id));
       await db.delete(banks).where(eq(banks.id, id));
     }
-    await db.delete(auditLog).where(eq(auditLog.actorId, admin.id));
     await deleteTestAdmin(admin.id);
   });
 

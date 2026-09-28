@@ -1,9 +1,16 @@
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import type { Express } from "express";
 import request from "supertest";
 import { db } from "../db/client.js";
-import { admins, sessions, users } from "../db/schema/index.js";
+import {
+  admins,
+  issueAdminReads,
+  issueMessages,
+  issues,
+  sessions,
+  users,
+} from "../db/schema/index.js";
 import { hashPassword } from "./password.js";
 
 export const TEST_PASSWORD = "Test-Password-123!";
@@ -72,7 +79,28 @@ export async function createTestUser(createdBy: string): Promise<TestUser> {
   return { id: user.id, userId };
 }
 
+/**
+ * TEST-ONLY. Deletes every help request raised by these users, with its
+ * thread and admin read markers. `issues` and `issue_messages` are
+ * append-only by database trigger (forbid_change(), migration 0006), so the
+ * only way to delete them is `session_replication_role = replica`, which
+ * skips triggers for this one transaction. That setting needs superuser —
+ * true for the dev/CI database role, never for the production app role —
+ * so this cannot be turned into a production delete path.
+ */
+export async function purgeTestIssues(raisedBy: string[]): Promise<void> {
+  if (raisedBy.length === 0) return;
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`SET LOCAL session_replication_role = replica`);
+    const ids = tx.select({ id: issues.id }).from(issues).where(inArray(issues.raisedBy, raisedBy));
+    await tx.delete(issueAdminReads).where(inArray(issueAdminReads.issueId, ids));
+    await tx.delete(issueMessages).where(inArray(issueMessages.issueId, ids));
+    await tx.delete(issues).where(inArray(issues.raisedBy, raisedBy));
+  });
+}
+
 export async function deleteTestUser(id: string): Promise<void> {
+  await purgeTestIssues([id]);
   await db.delete(sessions).where(eq(sessions.userId, id));
   await db.delete(users).where(eq(users.id, id));
 }

@@ -119,7 +119,9 @@ These are correctness and security requirements. Violating one is a bug even if 
 13. Milestone unlocks are computed inside that same transaction.
 14. Descriptions default to the literal string `"NA"` when not yet filled in.
 15. The audit log table is **append-only**. The application's database role has
-    `INSERT` and `SELECT` on it, and no `UPDATE` or `DELETE`.
+    `INSERT` and `SELECT` on it, and no `UPDATE` or `DELETE`. Since migration 0006 the
+    database also enforces it with a trigger (see **Append-only tables** below), so it
+    holds, and is tested, even for owners and superusers.
 16. Deleting a bank/loan type/status must not silently orphan rows — use explicit
     `ON DELETE CASCADE` or `RESTRICT`, chosen deliberately per foreign key.
 17. `ON DELETE RESTRICT` protects only against hard SQL `DELETE`. Soft delete is an
@@ -131,6 +133,30 @@ These are correctness and security requirements. Violating one is a bug even if 
     the resulting Postgres lock-timeout error to a `409 RESOURCE_BUSY` response. A stuck
     lock holder must time out and free its pool connection, never block a request or hold
     a connection indefinitely.
+
+### Append-only tables: `forbid_change()`
+
+`forbid_change()` (migration `0006_issue_immutability.sql`) is a trigger function that
+rejects a change with `ERRCODE restrict_violation` (SQLSTATE `23001`) and the message
+`<table> is append-only: <OP> is not allowed`. It's attached to:
+
+| Table            | Blocked                  | Why                                                                              |
+| ---------------- | ------------------------ | -------------------------------------------------------------------------------- |
+| `audit_log`      | UPDATE, DELETE, TRUNCATE | invariant 15                                                                     |
+| `issue_messages` | UPDATE, DELETE, TRUNCATE | a sent help-request message is part of the record; a correction is a new message |
+| `issues`         | DELETE, TRUNCATE         | help requests change status but never disappear                                  |
+
+- **Hit a `restrict_violation` / "is append-only" error in a test?** That's this trigger.
+  The test is trying to clean up or modify rows that must never change. Don't delete audit
+  rows; scope assertions to rows the test created. To delete test users' help requests, use
+  `purgeTestIssues()` from `lib/testAuth.ts` (`deleteTestUser` already calls it). It's the
+  only bypass: `SET LOCAL session_replication_role = replica`, which needs superuser, so it
+  works in dev/CI and never for the production app role.
+- **Adding a new append-only table?** Attach this function in a custom migration
+  (`pnpm --filter api exec drizzle-kit generate --custom`). Don't write a second one:
+  `BEFORE UPDATE OR DELETE … FOR EACH ROW` and `BEFORE TRUNCATE … FOR EACH STATEMENT`,
+  both `EXECUTE FUNCTION forbid_change()`. Add the table to the test in
+  `src/db/immutability.test.ts` and to the grants checklist.
 
 ### Caching
 
@@ -237,7 +263,7 @@ connect as them.
 
 - [ ] Two roles: an owner that runs migrations (e.g. `wtc_owner`), and the role the app's
       `DATABASE_URL` uses (e.g. `wtc_app`), which owns nothing and is `NOSUPERUSER
-  NOBYPASSRLS`.
+NOBYPASSRLS`.
 - [ ] Grants, run as `wtc_owner` after migrations:
 
   ```sql
@@ -245,6 +271,9 @@ connect as them.
   GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO wtc_app;
   -- audit_log is append-only: INSERT and SELECT, nothing else.
   REVOKE UPDATE, DELETE, TRUNCATE ON audit_log FROM wtc_app;
+  -- Help requests: messages are append-only; requests change status but are never deleted.
+  REVOKE UPDATE, DELETE, TRUNCATE ON issue_messages FROM wtc_app;
+  REVOKE DELETE, TRUNCATE ON issues FROM wtc_app;
   -- Tables created by future migrations get the same defaults...
   ALTER DEFAULT PRIVILEGES FOR ROLE wtc_owner IN SCHEMA public
     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO wtc_app;
