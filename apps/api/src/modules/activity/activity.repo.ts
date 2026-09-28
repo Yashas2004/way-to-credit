@@ -8,6 +8,7 @@ import {
   users,
 } from "../../db/schema/index.js";
 import type { DbOrTx } from "../../db/types.js";
+import { countAwaitingAdmin } from "../issues/issues.repo.js";
 
 export type ActivityLogRow = typeof activityLog.$inferSelect;
 
@@ -88,6 +89,7 @@ export interface Stats {
   activeUsersLast5Minutes: number;
   totalBanks: number;
   pendingQueryCount: number;
+  awaitingAdminIssueCount: number;
   totalCreditsIssued: number;
 }
 
@@ -118,6 +120,9 @@ export async function getStats(db: DbOrTx): Promise<Stats> {
     .from(queries)
     .where(eq(queries.status, "pending"));
 
+  // Help requests whose next move is an admin's: someone is waiting.
+  const awaitingAdminIssueCount = await countAwaitingAdmin(db);
+
   // "Issued" = gross cumulative positive deltas, not the current net
   // balance (SUM(users.creditPoints) would drop after any deduction,
   // contradicting its own label) — see the stage plan's decision.
@@ -132,6 +137,7 @@ export async function getStats(db: DbOrTx): Promise<Stats> {
     activeUsersLast5Minutes: userStats?.activeUsersLast5Minutes ?? 0,
     totalBanks: bankStats?.totalBanks ?? 0,
     pendingQueryCount: queryStats?.pendingQueryCount ?? 0,
+    awaitingAdminIssueCount,
     totalCreditsIssued: creditStats?.totalCreditsIssued ?? 0,
   };
 }

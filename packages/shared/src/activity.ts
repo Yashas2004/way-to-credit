@@ -49,6 +49,8 @@ export const StatsResponseSchema = z.object({
   activeUsersLast5Minutes: z.number().int(),
   totalBanks: z.number().int(),
   pendingQueryCount: z.number().int(),
+  /** Help requests whose next move is an admin's: the "someone is waiting" number. */
+  awaitingAdminIssueCount: z.number().int(),
   totalCreditsIssued: z.number().int(),
 });
 export type StatsResponse = z.infer<typeof StatsResponseSchema>;

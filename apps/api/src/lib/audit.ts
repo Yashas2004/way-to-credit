@@ -11,7 +11,10 @@ export type AuditAction =
   | "detach"
   | "approve"
   | "reject"
-  | "credit_adjustment";
+  | "credit_adjustment"
+  | "issue_reply"
+  | "issue_resolve"
+  | "issue_reopen";
 
 export interface AuditEntry {
   actorId: string;

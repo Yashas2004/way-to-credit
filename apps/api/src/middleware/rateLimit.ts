@@ -206,6 +206,29 @@ export const queryRateLimit = userRateLimit({
   label: "query",
 });
 
+/**
+ * Help requests. Creation is the spam guard, so it's tight. Messages within
+ * an existing request are generous: one a minute in a real back-and-forth
+ * is normal, and 300/hour (five a minute, sustained for an hour) is beyond
+ * any human conversation — hitting it means a script. Per user, not per
+ * request, so total volume stays bounded however many requests a user has.
+ */
+export const issueCreateRateLimit = userRateLimit({
+  keyPrefix: "issue:create",
+  max: 5,
+  windowSeconds: 60 * 60,
+  message: "Too many help requests opened. Try again later.",
+  label: "help-request creation",
+});
+
+export const issueMessageRateLimit = userRateLimit({
+  keyPrefix: "issue:message",
+  max: 300,
+  windowSeconds: 60 * 60,
+  message: "Too many messages sent. Try again later.",
+  label: "help-request message",
+});
+
 const FORGOT_PASSWORD_IP_WINDOW_SECONDS = 60 * 60;
 const FORGOT_PASSWORD_IP_MAX = 5; // "5 per IP per hour"
 const FORGOT_PASSWORD_ADMIN_WINDOW_SECONDS = 60 * 60;

@@ -61,6 +61,14 @@ const ROUTES: { method: "get" | "post" | "patch" | "delete" | "put"; path: strin
   { method: "post", path: `/api/admin/milestones/${ID}/deactivate` },
   { method: "post", path: `/api/admin/milestones/${ID}/reactivate` },
 
+  { method: "get", path: "/api/admin/issues" },
+  { method: "get", path: "/api/admin/issues/unread-count" },
+  { method: "get", path: `/api/admin/issues/${ID}` },
+  { method: "post", path: `/api/admin/issues/${ID}/messages` },
+  { method: "post", path: `/api/admin/issues/${ID}/resolve` },
+  { method: "post", path: `/api/admin/issues/${ID}/reopen` },
+  { method: "post", path: `/api/admin/issues/${ID}/read` },
+
   { method: "get", path: "/api/admin/activity" },
   { method: "get", path: "/api/admin/sessions/active" },
   { method: "get", path: "/api/admin/stats" },

@@ -26,6 +26,7 @@ function renderWithPending(pendingQueryCount: number) {
     activeUsersLast5Minutes: 0,
     totalBanks: 4,
     pendingQueryCount,
+    awaitingAdminIssueCount: 0,
     totalCreditsIssued: 5,
   });
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

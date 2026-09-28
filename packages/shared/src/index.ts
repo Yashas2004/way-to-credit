@@ -7,6 +7,7 @@ export * from "./banks.js";
 export * from "./common.js";
 export * from "./credits.js";
 export * from "./descriptions.js";
+export * from "./issues.js";
 export * from "./loanTypes.js";
 export * from "./lookup.js";
 export * from "./milestones.js";

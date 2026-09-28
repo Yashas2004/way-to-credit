@@ -19,6 +19,8 @@ import { descriptionsRouter } from "./modules/descriptions/descriptions.routes.j
 import { exportRouter } from "./modules/export/export.routes.js";
 import { loanTypesRouter } from "./modules/loanTypes/loanTypes.routes.js";
 import { lookupRouter } from "./modules/lookup/lookup.routes.js";
+import { issuesAdminRouter } from "./modules/issues/issues.admin.routes.js";
+import { issuesRouter } from "./modules/issues/issues.routes.js";
 import { milestonesRouter } from "./modules/milestones/milestones.routes.js";
 import { queriesAdminRouter } from "./modules/queries/queries.admin.routes.js";
 import { queriesRouter } from "./modules/queries/queries.routes.js";
@@ -91,11 +93,13 @@ export function createApp(): Express {
   app.use("/api/admin/users", creditsAdminRouter);
   app.use("/api/admin/queries", queriesAdminRouter);
   app.use("/api/admin/milestones", milestonesRouter);
+  app.use("/api/admin/issues", issuesAdminRouter);
   app.use("/api/admin/me", authAdminRouter);
   app.use("/api/admin", activityRouter);
   app.use("/api/admin", exportRouter);
   app.use("/api/user", lookupRouter);
   app.use("/api/user/queries", queriesRouter);
+  app.use("/api/user/issues", issuesRouter);
   app.use("/api/user/me", creditsRouter);
 
   app.use(notFoundHandler);

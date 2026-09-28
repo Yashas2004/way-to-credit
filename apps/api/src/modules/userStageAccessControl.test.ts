@@ -23,6 +23,14 @@ const ROUTES: { method: "get" | "post"; path: string }[] = [
   { method: "get", path: "/api/user/queries" },
   { method: "get", path: "/api/user/me/credits" },
   { method: "post", path: `/api/user/me/milestones/${ID}/seen` },
+  // Help requests. The create route is here deliberately: only users raise
+  // requests, admins only respond — an admin token must get 403.
+  { method: "post", path: "/api/user/issues" },
+  { method: "get", path: "/api/user/issues" },
+  { method: "get", path: "/api/user/issues/unread-count" },
+  { method: "get", path: `/api/user/issues/${ID}` },
+  { method: "post", path: `/api/user/issues/${ID}/messages` },
+  { method: "post", path: `/api/user/issues/${ID}/read` },
 ];
 
 describe("every user-stage route rejects an admin token with 403 FORBIDDEN", () => {
