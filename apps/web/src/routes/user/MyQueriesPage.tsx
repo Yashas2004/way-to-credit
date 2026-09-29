@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import type { QueryStatus } from "@way-to-credit/shared";
 import { Link } from "react-router-dom";
 import { Badge, type BadgeTone } from "../../components/Badge";
@@ -6,7 +6,8 @@ import { Button } from "../../components/Button";
 import { EmptyState } from "../../components/EmptyState";
 import { ErrorState } from "../../components/ErrorState";
 import { Spinner } from "../../components/Spinner";
-import { fetchOwnQueries } from "../../lib/userApi";
+import { isAvailable, workspaceHref } from "../../lib/recentLookups";
+import { fetchOwnQueries, fetchWorkspaceNav } from "../../lib/userApi";
 
 const STATUS_TONE: Record<QueryStatus, BadgeTone> = {
   pending: "neutral",
@@ -20,11 +21,14 @@ const STATUS_LABEL: Record<QueryStatus, string> = {
   rejected: "Rejected",
 };
 
-const dateFormatter = new Intl.DateTimeFormat("en-IN", {
+const dayFormatter = new Intl.DateTimeFormat("en-IN", {
   timeZone: "Asia/Kolkata",
   day: "numeric",
   month: "short",
   year: "numeric",
+});
+const timeFormatter = new Intl.DateTimeFormat("en-IN", {
+  timeZone: "Asia/Kolkata",
   hour: "numeric",
   minute: "2-digit",
 });
@@ -41,6 +45,14 @@ export function MyQueriesPage() {
   });
 
   const items = query.data?.pages.flatMap((page) => page.items) ?? [];
+  // For the "Look up" links: shared with the Workspace (and usually cached).
+  // Rows whose bank, loan type or status has since been withdrawn get none.
+  const navQuery = useQuery({
+    queryKey: ["user", "navigation"],
+    queryFn: fetchWorkspaceNav,
+    retry: false,
+  });
+  const nav = navQuery.data;
 
   return (
     <div className="flex flex-col gap-6">
@@ -80,23 +92,45 @@ export function MyQueriesPage() {
 
       {items.length > 0 && (
         <ul className="flex flex-col divide-y divide-muted/15 rounded-md border border-muted/20 bg-white">
+          {/* One scannable grid from md up: what and why | outcome | when.
+              Below md the three stack, outcome and date sharing a line. */}
           {items.map((item) => (
-            <li key={item.id} className="flex flex-col gap-2 px-4 py-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-body font-medium text-ink">
-                  {item.bankNameSnapshot} · {item.loanTypeNameSnapshot} · {item.statusNameSnapshot}
+            <li
+              key={item.id}
+              className="flex flex-col gap-3 px-4 py-4 md:grid md:grid-cols-[minmax(0,1fr)_10rem_9rem] md:gap-6"
+            >
+              <div className="min-w-0">
+                <p className="text-small text-muted">
+                  {item.bankNameSnapshot} · {item.loanTypeNameSnapshot}
                 </p>
-                <div className="flex items-center gap-2">
+                <p className="text-body font-medium text-ink">{item.statusNameSnapshot}</p>
+                <p className="mt-1.5 max-w-[66ch] text-body text-ink">{item.message}</p>
+                {nav && isAvailable(nav, item) && (
+                  <Link
+                    to={workspaceHref(item)}
+                    className="mt-1.5 inline-block text-small text-brand-ink underline"
+                    aria-label={`Look up ${item.statusNameSnapshot} at ${item.bankNameSnapshot}, ${item.loanTypeNameSnapshot}`}
+                  >
+                    Look up
+                  </Link>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-2 md:contents">
+                <div className="flex flex-wrap items-center gap-2 md:flex-col md:items-start md:gap-1">
                   <Badge tone={STATUS_TONE[item.status]} label={STATUS_LABEL[item.status]} />
                   {item.status === "approved" && (
                     <span className="text-small font-medium text-positive">+1 credit</span>
                   )}
                 </div>
+                <p className="text-small text-muted md:text-right">
+                  <span className="sr-only">Raised </span>
+                  {dayFormatter.format(new Date(item.raisedAt))}
+                  <span className="md:block">
+                    <span className="md:hidden">, </span>
+                    {timeFormatter.format(new Date(item.raisedAt))} IST
+                  </span>
+                </p>
               </div>
-              <p className="text-body text-ink">{item.message}</p>
-              <p className="text-small text-muted">
-                Raised {dateFormatter.format(new Date(item.raisedAt))} IST
-              </p>
             </li>
           ))}
         </ul>
