@@ -17,7 +17,7 @@ const app = createApp();
 const ID = "00000000-0000-0000-0000-000000000000";
 
 const ROUTES: { method: "get" | "post"; path: string }[] = [
-  { method: "get", path: "/api/user/tree" },
+  { method: "get", path: "/api/user/navigation" },
   { method: "get", path: `/api/user/description?bankId=${ID}&loanTypeId=${ID}&statusId=${ID}` },
   { method: "post", path: "/api/user/queries" },
   { method: "get", path: "/api/user/queries" },

@@ -17,7 +17,7 @@ export interface ExportRow {
  *
  * Anchored on banks → bank_loan_types → loan_types → every active status,
  * with descriptions LEFT JOINed only for the body — the same shape as
- * lib/descriptionTree.ts. This used to select FROM descriptions, so any bank
+ * the Workspace lookups. This used to select FROM descriptions, so any bank
  * with no description rows (i.e. every bank an admin created, since only the
  * seed script materialises NA rows) was missing from the export entirely.
  * Now: a wired triple with no description exports as "NA", and a bank with

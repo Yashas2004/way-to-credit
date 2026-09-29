@@ -8,7 +8,7 @@ import { redis } from "./lib/redis.js";
  */
 export default async function setup(): Promise<void> {
   try {
-    const keys = [...(await redis.keys("login:*")), ...(await redis.keys("tree:*"))];
+    const keys = [...(await redis.keys("login:*")), ...(await redis.keys("nav:*"))];
     if (keys.length > 0) {
       await redis.del(...keys);
     }

@@ -10,10 +10,9 @@ export const lookupRouter: Router = Router();
 
 lookupRouter.use(requireAuth, timeWindow(), requireRole("user"));
 
-lookupRouter.get("/tree", async (_req, res, next) => {
+lookupRouter.get("/navigation", async (_req, res, next) => {
   try {
-    const tree = await lookupService.getUserTree();
-    res.status(200).json(tree);
+    res.status(200).json(await lookupService.getNavigation());
   } catch (error) {
     next(error);
   }

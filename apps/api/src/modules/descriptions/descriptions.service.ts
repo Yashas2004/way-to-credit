@@ -1,7 +1,7 @@
 import { db } from "../../db/client.js";
 import { descriptions } from "../../db/schema/index.js";
 import { recordAudit } from "../../lib/audit.js";
-import { invalidateDescriptionTreeCache } from "../../lib/cache.js";
+import { invalidateWorkspaceCache } from "../../lib/cache.js";
 import { NotFoundError, PairNotAttachedError } from "../../lib/errors.js";
 import { runLockedTransaction } from "../../lib/lockedTransaction.js";
 import * as banksRepo from "../banks/banks.repo.js";
@@ -85,7 +85,7 @@ export async function upsertDescription(
     return after;
   });
 
-  await invalidateDescriptionTreeCache();
+  await invalidateWorkspaceCache();
   return result;
 }
 

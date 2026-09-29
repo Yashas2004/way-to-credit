@@ -1,6 +1,6 @@
 import { db } from "../../db/client.js";
 import { recordAudit } from "../../lib/audit.js";
-import { invalidateDescriptionTreeCache } from "../../lib/cache.js";
+import { invalidateWorkspaceCache } from "../../lib/cache.js";
 import { ConflictError, NotFoundError } from "../../lib/errors.js";
 import { hashPassword } from "../../lib/password.js";
 import { isUniqueViolationError } from "../../lib/pgErrors.js";
@@ -53,7 +53,7 @@ export async function createUser(actorId: string, input: CreateUserInput): Promi
     throw error;
   }
 
-  await invalidateDescriptionTreeCache();
+  await invalidateWorkspaceCache();
   return user;
 }
 
@@ -147,7 +147,7 @@ export async function deactivateUser(actorId: string, id: string): Promise<Admin
     return updated;
   });
 
-  await invalidateDescriptionTreeCache();
+  await invalidateWorkspaceCache();
   return after;
 }
 
@@ -181,7 +181,7 @@ export async function reactivateUser(actorId: string, id: string): Promise<Admin
     return updated;
   });
 
-  await invalidateDescriptionTreeCache();
+  await invalidateWorkspaceCache();
   return after;
 }
 
@@ -216,5 +216,5 @@ export async function resetUserPassword(
     });
   });
 
-  await invalidateDescriptionTreeCache();
+  await invalidateWorkspaceCache();
 }

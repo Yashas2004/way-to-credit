@@ -9,13 +9,16 @@ import type {
   QueryRow,
   RaiseQueryRequest,
   RewardsMapResponse,
-  UserTreeResponse,
+  WorkspaceNavResponse,
 } from "@way-to-credit/shared";
 import { apiGet, apiPost } from "./api";
 
-/** Fetched once and cached — narrowing the three cascading selects never issues a further request. */
-export function fetchUserTree(): Promise<UserTreeResponse> {
-  return apiGet<UserTreeResponse>("/api/user/tree");
+/**
+ * The Workspace's navigation data, each list once (statuses, loan types,
+ * banks with the loan types they offer as indexes). No description bodies.
+ */
+export function fetchWorkspaceNav(): Promise<WorkspaceNavResponse> {
+  return apiGet<WorkspaceNavResponse>("/api/user/navigation");
 }
 
 export function fetchDescription(

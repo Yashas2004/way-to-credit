@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createApp } from "../../app.js";
 import { db } from "../../db/client.js";
 import { banks, bankLoanTypes, descriptions, loanTypes, statuses } from "../../db/schema/index.js";
-import { invalidateDescriptionTreeCache } from "../../lib/cache.js";
+import { invalidateWorkspaceCache } from "../../lib/cache.js";
 import {
   createTestAdmin,
   createTestUser,
@@ -22,20 +22,10 @@ import * as descriptionsService from "../descriptions/descriptions.service.js";
 import * as loanTypesService from "../loanTypes/loanTypes.service.js";
 import * as statusesService from "../statuses/statuses.service.js";
 
-interface TreeStatus {
-  statusId: string;
-  statusName: string;
-  sortOrder: number;
-}
-interface TreeLoanType {
-  loanTypeId: string;
-  loanTypeName: string;
-  statuses: TreeStatus[];
-}
-interface TreeBank {
-  bankId: string;
-  bankName: string;
-  loanTypes: TreeLoanType[];
+interface Nav {
+  statuses: { id: string; name: string; sortOrder: number }[];
+  loanTypes: { id: string; name: string }[];
+  banks: { id: string; name: string; loanTypes: number[] }[];
 }
 
 const app = createApp();
@@ -138,7 +128,7 @@ describe("user lookup API", () => {
       .update(statuses)
       .set({ deletedAt: new Date() })
       .where(eq(statuses.id, deletedStatusId));
-    await invalidateDescriptionTreeCache();
+    await invalidateWorkspaceCache();
   });
 
   afterAll(async () => {
@@ -167,35 +157,68 @@ describe("user lookup API", () => {
     await deleteTestAdmin(admin.id);
   });
 
-  it("GET /tree includes wired, non-deleted entries, excludes soft-deleted ones, and never includes a body field", async () => {
-    const res = await request(app).get("/api/user/tree").set("Cookie", userCookie);
+  it("GET /navigation ships each list once: live entries only, statuses never repeated per pair, no body anywhere", async () => {
+    const res = await request(app).get("/api/user/navigation").set("Cookie", userCookie);
     expect(res.status).toBe(200);
-    const tree = res.body as TreeBank[];
+    const nav = res.body as Nav;
 
-    const treeBank = tree.find((b) => b.bankId === bankId);
-    expect(treeBank).toBeDefined();
+    const navBank = nav.banks.find((b) => b.id === bankId);
+    expect(navBank).toBeDefined();
+    // The bank's offered loan types are indexes into the one loanTypes list.
+    const offered = (navBank?.loanTypes ?? []).map((i) => nav.loanTypes[i]?.id);
+    expect(offered).toContain(loanTypeId);
 
-    const treeLoanType = treeBank?.loanTypes.find((lt) => lt.loanTypeId === loanTypeId);
-    expect(treeLoanType).toBeDefined();
+    // Statuses are one global list: every live status once, none per pair.
+    expect(nav.statuses.some((s) => s.id === describedStatusId)).toBe(true);
+    expect(new Set(nav.statuses.map((s) => s.id)).size).toBe(nav.statuses.length);
+    expect(Object.keys(nav).sort()).toEqual(["banks", "loanTypes", "statuses"]);
 
-    const treeStatus = treeLoanType?.statuses.find((s) => s.statusId === describedStatusId);
-    expect(treeStatus).toBeDefined();
-    expect(treeStatus).not.toHaveProperty("body");
+    // Soft-deleted bank, loan type and status excluded.
+    expect(nav.banks.some((b) => b.id === deletedBankId)).toBe(false);
+    expect(nav.loanTypes.some((lt) => lt.id === deletedLoanTypeId)).toBe(false);
+    expect(offered).not.toContain(deletedLoanTypeId);
+    expect(nav.statuses.some((s) => s.id === deletedStatusId)).toBe(false);
 
-    // Soft-deleted bank excluded entirely.
-    expect(tree.some((b) => b.bankId === deletedBankId)).toBe(false);
-    // Soft-deleted loan type excluded from its (still-live) bank.
-    expect(treeBank?.loanTypes.some((lt) => lt.loanTypeId === deletedLoanTypeId)).toBe(false);
-    // Described-but-since-deleted status excluded.
-    expect(treeLoanType?.statuses.some((s) => s.statusId === deletedStatusId)).toBe(false);
+    // Never a description body.
+    expect(JSON.stringify(nav)).not.toContain("Real description text");
+  });
 
-    // No status entry anywhere in the payload carries a body field.
-    for (const b of tree) {
-      for (const lt of b.loanTypes) {
-        for (const s of lt.statuses) {
-          expect(s).not.toHaveProperty("body");
-        }
+  // Ported from the old tree's regressions: an admin-created bank has no
+  // materialised description rows, yet every live status must be reachable
+  // for each pair it offers, as NA.
+  it("a newly created, newly attached pair answers NA for every live status, with no description rows", async () => {
+    const bank = await banksService.createBank(admin.id, `Lookup Fresh Bank ${randomUUID()}`);
+    await bankLoanTypesService.attachLoanType(admin.id, bank.id, loanTypeId);
+    try {
+      const nav = (await request(app).get("/api/user/navigation").set("Cookie", userCookie))
+        .body as Nav;
+      const offered = nav.banks
+        .find((b) => b.id === bank.id)
+        ?.loanTypes.map((i) => nav.loanTypes[i]?.id);
+      expect(offered).toEqual([loanTypeId]);
+      for (const status of nav.statuses.slice(0, 5)) {
+        const res = await request(app)
+          .get(
+            `/api/user/description?bankId=${bank.id}&loanTypeId=${loanTypeId}&statusId=${status.id}`,
+          )
+          .set("Cookie", userCookie);
+        expect(res.status).toBe(200);
+        expect((res.body as { body: string }).body).toBe("NA");
       }
+    } finally {
+      await db.delete(bankLoanTypes).where(eq(bankLoanTypes.bankId, bank.id));
+      await db.delete(banks).where(eq(banks.id, bank.id));
+    }
+  });
+
+  it("a bank with nothing attached is listed, with an empty loan type list (so the UI can say so)", async () => {
+    const bank = await banksService.createBank(admin.id, `Lookup Bare Bank ${randomUUID()}`);
+    try {
+      const nav = (await request(app).get("/api/user/navigation").set("Cookie", userCookie))
+        .body as Nav;
+      expect(nav.banks.find((b) => b.id === bank.id)?.loanTypes).toEqual([]);
+    } finally {
+      await db.delete(banks).where(eq(banks.id, bank.id));
     }
   });
 

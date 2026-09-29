@@ -8,31 +8,47 @@ import { EmptyState } from "../../components/EmptyState";
 import { ErrorState } from "../../components/ErrorState";
 import { Select } from "../../components/Select";
 import { Spinner } from "../../components/Spinner";
-import { fetchDescription, fetchUserTree } from "../../lib/userApi";
+import { fetchDescription, fetchWorkspaceNav } from "../../lib/userApi";
 import { RaiseQueryModal, type RaiseQueryContext } from "./RaiseQueryModal";
 
 const NA_BODY = "NA";
 
 export function WorkspacePage() {
-  const treeQuery = useQuery({ queryKey: ["user", "tree"], queryFn: fetchUserTree });
+  // No retry: a failed or timed-out navigation load says so at once, rather
+  // than retrying behind a spinner (a 5 s timeout retried once kept users
+  // waiting 12 s to learn something was wrong). The Retry button is right there.
+  const treeQuery = useQuery({
+    queryKey: ["user", "navigation"],
+    queryFn: fetchWorkspaceNav,
+    retry: false,
+  });
 
   const [bankId, setBankId] = useState("");
   const [loanTypeId, setLoanTypeId] = useState("");
   const [statusId, setStatusId] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
 
-  const banks = treeQuery.data ?? [];
-  const selectedBank = banks.find((b) => b.bankId === bankId);
-  const loanTypes = selectedBank?.loanTypes ?? [];
+  const nav = treeQuery.data;
+  const banks = nav?.banks ?? [];
+  const selectedBank = banks.find((b) => b.id === bankId);
+  const loanTypes = useMemo(
+    () =>
+      nav && selectedBank
+        ? selectedBank.loanTypes.flatMap((i) => (nav.loanTypes[i] ? [nav.loanTypes[i]] : []))
+        : [],
+    [nav, selectedBank],
+  );
   // A bank with nothing wired to it yet is a real, valid state — say so,
   // rather than presenting a silently empty dropdown.
   const bankHasNoLoanTypes = Boolean(selectedBank) && loanTypes.length === 0;
-  const selectedLoanType = loanTypes.find((lt) => lt.loanTypeId === loanTypeId);
+  const selectedLoanType = loanTypes.find((lt) => lt.id === loanTypeId);
+  // Statuses are global: every live status applies to every attached pair.
   const statuses = useMemo(
-    () => [...(selectedLoanType?.statuses ?? [])].sort((a, b) => a.sortOrder - b.sortOrder),
-    [selectedLoanType],
+    () =>
+      selectedLoanType ? [...(nav?.statuses ?? [])].sort((a, b) => a.sortOrder - b.sortOrder) : [],
+    [nav, selectedLoanType],
   );
-  const selectedStatus = statuses.find((s) => s.statusId === statusId);
+  const selectedStatus = statuses.find((s) => s.id === statusId);
 
   const allSelected = Boolean(bankId && loanTypeId && statusId);
   const descriptionQuery = useQuery({
@@ -85,12 +101,12 @@ export function WorkspacePage() {
   const raiseQueryContext: RaiseQueryContext | null =
     selectedBank && selectedLoanType && selectedStatus
       ? {
-          bankId: selectedBank.bankId,
-          bankName: selectedBank.bankName,
-          loanTypeId: selectedLoanType.loanTypeId,
-          loanTypeName: selectedLoanType.loanTypeName,
-          statusId: selectedStatus.statusId,
-          statusName: selectedStatus.statusName,
+          bankId: selectedBank.id,
+          bankName: selectedBank.name,
+          loanTypeId: selectedLoanType.id,
+          loanTypeName: selectedLoanType.name,
+          statusId: selectedStatus.id,
+          statusName: selectedStatus.name,
         }
       : null;
 
@@ -111,7 +127,7 @@ export function WorkspacePage() {
             handleBankChange(e.target.value);
           }}
           placeholder="Choose a bank"
-          options={banks.map((b) => ({ value: b.bankId, label: b.bankName }))}
+          options={banks.map((b) => ({ value: b.id, label: b.name }))}
         />
         <Select
           label="Loan type"
@@ -126,7 +142,7 @@ export function WorkspacePage() {
             : bankHasNoLoanTypes
               ? { hint: "This bank has no loan types attached yet." }
               : {})}
-          options={loanTypes.map((lt) => ({ value: lt.loanTypeId, label: lt.loanTypeName }))}
+          options={loanTypes.map((lt) => ({ value: lt.id, label: lt.name }))}
         />
         <Select
           label="Status"
@@ -138,8 +154,8 @@ export function WorkspacePage() {
           disabled={!loanTypeId}
           {...(!loanTypeId ? { hint: "Choose a loan type first" } : {})}
           options={statuses.map((s, i) => ({
-            value: s.statusId,
-            label: `${s.statusName} — step ${String(i + 1)} of ${String(statuses.length)}`,
+            value: s.id,
+            label: `${s.name} — step ${String(i + 1)} of ${String(statuses.length)}`,
           }))}
         />
       </div>
@@ -147,7 +163,7 @@ export function WorkspacePage() {
       {allSelected && selectedStatus && (
         <Card>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="font-serif text-h2 text-ink">{selectedStatus.statusName}</h2>
+            <h2 className="font-serif text-h2 text-ink">{selectedStatus.name}</h2>
             <Badge
               tone="neutral"
               label="Lifecycle position"

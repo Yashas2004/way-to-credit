@@ -1,7 +1,7 @@
 import { db } from "../../db/client.js";
 import { banks } from "../../db/schema/index.js";
 import { recordAudit } from "../../lib/audit.js";
-import { invalidateDescriptionTreeCache } from "../../lib/cache.js";
+import { invalidateWorkspaceCache } from "../../lib/cache.js";
 import {
   ConflictError,
   HasDependentDescriptionsError,
@@ -39,7 +39,7 @@ export async function createBank(actorId: string, name: string): Promise<Bank> {
     throw error;
   }
 
-  await invalidateDescriptionTreeCache();
+  await invalidateWorkspaceCache();
   return bank;
 }
 
@@ -79,7 +79,7 @@ export async function updateBank(actorId: string, id: string, name: string): Pro
     throw error;
   }
 
-  await invalidateDescriptionTreeCache();
+  await invalidateWorkspaceCache();
   return after;
 }
 
@@ -117,7 +117,7 @@ export async function softDeleteBank(actorId: string, id: string): Promise<Bank>
     return after;
   });
 
-  await invalidateDescriptionTreeCache();
+  await invalidateWorkspaceCache();
   return result;
 }
 
@@ -148,6 +148,6 @@ export async function undeleteBank(actorId: string, id: string): Promise<Bank> {
     return updated;
   });
 
-  await invalidateDescriptionTreeCache();
+  await invalidateWorkspaceCache();
   return after;
 }

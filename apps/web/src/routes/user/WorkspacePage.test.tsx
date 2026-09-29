@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import type { UserTreeResponse } from "@way-to-credit/shared";
+import type { WorkspaceNavResponse } from "@way-to-credit/shared";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../components/Toast";
@@ -10,43 +10,32 @@ vi.mock("../../lib/userApi", async () => {
   const actual = await vi.importActual<typeof import("../../lib/userApi")>("../../lib/userApi");
   return {
     ...actual,
-    fetchUserTree: vi.fn(),
+    fetchWorkspaceNav: vi.fn(),
     fetchDescription: vi.fn(),
   };
 });
 
-import { fetchDescription, fetchUserTree } from "../../lib/userApi";
+import { fetchDescription, fetchWorkspaceNav } from "../../lib/userApi";
 
-const mockFetchUserTree = vi.mocked(fetchUserTree);
+const mockFetchNav = vi.mocked(fetchWorkspaceNav);
 const mockFetchDescription = vi.mocked(fetchDescription);
 
-const TREE: UserTreeResponse = [
-  {
-    bankId: "bank-a",
-    bankName: "Bank A",
-    loanTypes: [
-      {
-        loanTypeId: "lt-a1",
-        loanTypeName: "Home Loan",
-        statuses: [
-          { statusId: "st-a1-2", statusName: "Sanctioned", sortOrder: 2 },
-          { statusId: "st-a1-1", statusName: "Login", sortOrder: 1 },
-        ],
-      },
-    ],
-  },
-  {
-    bankId: "bank-b",
-    bankName: "Bank B",
-    loanTypes: [
-      {
-        loanTypeId: "lt-b1",
-        loanTypeName: "Car Loan",
-        statuses: [{ statusId: "st-b1-1", statusName: "Closed", sortOrder: 1 }],
-      },
-    ],
-  },
-];
+// Statuses are global (one list), loan types are listed once, and each bank
+// offers loan types by index into that list.
+const TREE: WorkspaceNavResponse = {
+  statuses: [
+    { id: "st-sanctioned", name: "Sanctioned", sortOrder: 2 },
+    { id: "st-login", name: "Login", sortOrder: 1 },
+  ],
+  loanTypes: [
+    { id: "lt-b1", name: "Car Loan" },
+    { id: "lt-a1", name: "Home Loan" },
+  ],
+  banks: [
+    { id: "bank-a", name: "Bank A", loanTypes: [1] },
+    { id: "bank-b", name: "Bank B", loanTypes: [0] },
+  ],
+};
 
 function renderWorkspace() {
   const queryClient = new QueryClient({
@@ -65,7 +54,7 @@ function renderWorkspace() {
 
 describe("WorkspacePage", () => {
   it("loads the tree once and fires no further tree requests while narrowing", async () => {
-    mockFetchUserTree.mockResolvedValue(TREE);
+    mockFetchNav.mockResolvedValue(TREE);
     mockFetchDescription.mockResolvedValue({ body: "Some description" });
 
     renderWorkspace();
@@ -76,17 +65,17 @@ describe("WorkspacePage", () => {
       target: { value: "lt-a1" },
     });
     fireEvent.change(await screen.findByLabelText("Status"), {
-      target: { value: "st-a1-1" },
+      target: { value: "st-login" },
     });
 
     await waitFor(() => {
       expect(mockFetchDescription).toHaveBeenCalledTimes(1);
     });
-    expect(mockFetchUserTree).toHaveBeenCalledTimes(1);
+    expect(mockFetchNav).toHaveBeenCalledTimes(1);
   });
 
   it("orders statuses by sortOrder and resets loan type and status when the bank changes", async () => {
-    mockFetchUserTree.mockResolvedValue(TREE);
+    mockFetchNav.mockResolvedValue(TREE);
     mockFetchDescription.mockResolvedValue({ body: "Some description" });
 
     renderWorkspace();
@@ -103,8 +92,8 @@ describe("WorkspacePage", () => {
       "Sanctioned — step 2 of 2",
     ]);
 
-    fireEvent.change(screen.getByLabelText("Status"), { target: { value: "st-a1-1" } });
-    expect(screen.getByLabelText<HTMLSelectElement>("Status").value).toBe("st-a1-1");
+    fireEvent.change(screen.getByLabelText("Status"), { target: { value: "st-login" } });
+    expect(screen.getByLabelText<HTMLSelectElement>("Status").value).toBe("st-login");
 
     fireEvent.change(screen.getByLabelText("Bank"), { target: { value: "bank-b" } });
 
@@ -116,10 +105,10 @@ describe("WorkspacePage", () => {
   // Regression: a bank with nothing attached rendered a silently empty
   // Loan type dropdown, indistinguishable from a broken one.
   it("says plainly when the chosen bank has no loan types attached yet", async () => {
-    mockFetchUserTree.mockResolvedValue([
+    mockFetchNav.mockResolvedValue({
       ...TREE,
-      { bankId: "bank-new", bankName: "Brand New Bank", loanTypes: [] },
-    ]);
+      banks: [...TREE.banks, { id: "bank-new", name: "Brand New Bank", loanTypes: [] }],
+    });
 
     renderWorkspace();
 
@@ -131,7 +120,7 @@ describe("WorkspacePage", () => {
   });
 
   it("shows the NA state distinctly from a real description", async () => {
-    mockFetchUserTree.mockResolvedValue(TREE);
+    mockFetchNav.mockResolvedValue(TREE);
     mockFetchDescription.mockResolvedValue({ body: "NA" });
 
     renderWorkspace();
@@ -142,7 +131,7 @@ describe("WorkspacePage", () => {
       target: { value: "lt-b1" },
     });
     fireEvent.change(await screen.findByLabelText("Status"), {
-      target: { value: "st-b1-1" },
+      target: { value: "st-login" },
     });
 
     expect(
@@ -155,7 +144,7 @@ describe("WorkspacePage", () => {
       target: { value: "lt-a1" },
     });
     fireEvent.change(await screen.findByLabelText("Status"), {
-      target: { value: "st-a1-1" },
+      target: { value: "st-login" },
     });
 
     expect(await screen.findByText("Loan fully repaid and account closed.")).toBeInTheDocument();
@@ -170,5 +159,24 @@ describe("WorkspacePage", () => {
       "href",
       "/user/help",
     );
+  });
+
+  it("fails fast on a navigation error: no retry, even where the app's default would retry", async () => {
+    mockFetchNav.mockReset();
+    mockFetchNav.mockRejectedValue(new Error("timeout"));
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 3 } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <ToastProvider>
+            <WorkspacePage />
+          </ToastProvider>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(
+      await screen.findByText(/couldn't load the bank and loan type list/i),
+    ).toBeInTheDocument();
+    expect(mockFetchNav).toHaveBeenCalledTimes(1);
   });
 });

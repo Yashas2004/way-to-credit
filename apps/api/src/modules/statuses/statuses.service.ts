@@ -1,7 +1,7 @@
 import { db } from "../../db/client.js";
 import { statuses } from "../../db/schema/index.js";
 import { recordAudit } from "../../lib/audit.js";
-import { invalidateDescriptionTreeCache } from "../../lib/cache.js";
+import { invalidateWorkspaceCache } from "../../lib/cache.js";
 import {
   ConflictError,
   HasDependentDescriptionsError,
@@ -42,7 +42,7 @@ export async function createStatus(
     throw error;
   }
 
-  await invalidateDescriptionTreeCache();
+  await invalidateWorkspaceCache();
   return status;
 }
 
@@ -90,7 +90,7 @@ export async function updateStatus(
     throw error;
   }
 
-  await invalidateDescriptionTreeCache();
+  await invalidateWorkspaceCache();
   return after;
 }
 
@@ -128,7 +128,7 @@ export async function softDeleteStatus(actorId: string, id: string): Promise<Sta
     return after;
   });
 
-  await invalidateDescriptionTreeCache();
+  await invalidateWorkspaceCache();
   return result;
 }
 
@@ -159,6 +159,6 @@ export async function undeleteStatus(actorId: string, id: string): Promise<Statu
     return updated;
   });
 
-  await invalidateDescriptionTreeCache();
+  await invalidateWorkspaceCache();
   return after;
 }

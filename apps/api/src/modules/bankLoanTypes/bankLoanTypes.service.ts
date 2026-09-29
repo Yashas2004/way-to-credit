@@ -2,7 +2,7 @@ import { db } from "../../db/client.js";
 import { bankLoanTypes } from "../../db/schema/index.js";
 import type { DbOrTx } from "../../db/types.js";
 import { recordAudit } from "../../lib/audit.js";
-import { invalidateDescriptionTreeCache } from "../../lib/cache.js";
+import { invalidateWorkspaceCache } from "../../lib/cache.js";
 import {
   AlreadyAttachedError,
   HasDependentDescriptionsError,
@@ -73,7 +73,7 @@ export async function attachLoanType(
     return inserted;
   });
 
-  await invalidateDescriptionTreeCache();
+  await invalidateWorkspaceCache();
   return row;
 }
 
@@ -99,7 +99,7 @@ export async function detachLoanType(
     await recordWiringAudit(tx, actorId, "detach", bankId, loanTypeId, before, null);
   });
 
-  await invalidateDescriptionTreeCache();
+  await invalidateWorkspaceCache();
 }
 
 export async function listLoanTypesForBank(bankId: string) {

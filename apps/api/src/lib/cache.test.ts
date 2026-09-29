@@ -4,18 +4,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../db/client.js";
 import { banks } from "../db/schema/index.js";
 import * as banksService from "../modules/banks/banks.service.js";
-import { getDescriptionTree, invalidateDescriptionTreeCache } from "./cache.js";
-import { buildDescriptionTree } from "./descriptionTree.js";
+import { getWorkspaceNav, invalidateWorkspaceCache } from "./cache.js";
+import { buildWorkspaceNav } from "./workspaceNav.js";
 import { redis } from "./redis.js";
 import { createTestAdmin, deleteTestAdmin } from "./testAuth.js";
 
 // Pass-through spy so tests can count real rebuilds.
-vi.mock("./descriptionTree.js", async () => {
-  const actual =
-    await vi.importActual<typeof import("./descriptionTree.js")>("./descriptionTree.js");
-  return { ...actual, buildDescriptionTree: vi.fn(actual.buildDescriptionTree) };
+vi.mock("./workspaceNav.js", async () => {
+  const actual = await vi.importActual<typeof import("./workspaceNav.js")>("./workspaceNav.js");
+  return { ...actual, buildWorkspaceNav: vi.fn(actual.buildWorkspaceNav) };
 });
-const buildSpy = vi.mocked(buildDescriptionTree);
+const buildSpy = vi.mocked(buildWorkspaceNav);
 
 describe("description tree cache", () => {
   beforeEach(() => {
@@ -25,14 +24,14 @@ describe("description tree cache", () => {
   it("is invalidated by a write: read, write, read again — the change is visible", async () => {
     const admin = await createTestAdmin();
     try {
-      const before = await getDescriptionTree();
+      const before = await getWorkspaceNav();
 
       const bank = await banksService.createBank(admin.id, `Cache Test Bank ${randomUUID()}`);
 
-      const after = await getDescriptionTree();
+      const after = await getWorkspaceNav();
 
-      expect(before.some((b) => b.bankId === bank.id)).toBe(false);
-      expect(after.some((b) => b.bankId === bank.id)).toBe(true);
+      expect(before.banks.some((b) => b.id === bank.id)).toBe(false);
+      expect(after.banks.some((b) => b.id === bank.id)).toBe(true);
 
       await db.delete(banks).where(eq(banks.id, bank.id));
     } finally {
@@ -43,7 +42,7 @@ describe("description tree cache", () => {
   it("falls through to Postgres without throwing when Redis is unreachable", async () => {
     const getSpy = vi.spyOn(redis, "get").mockRejectedValue(new Error("simulated redis outage"));
     try {
-      await expect(getDescriptionTree()).resolves.toBeInstanceOf(Array);
+      await expect(getWorkspaceNav()).resolves.toHaveProperty("banks");
     } finally {
       getSpy.mockRestore();
     }
@@ -57,14 +56,14 @@ describe("description tree cache", () => {
   it("still invalidates on the first write after the version key has gone missing", async () => {
     const admin = await createTestAdmin();
     try {
-      await redis.del("tree:version");
-      const before = await getDescriptionTree(); // caches under whatever version it now picks
+      await redis.del("nav:version");
+      const before = await getWorkspaceNav(); // caches under whatever version it now picks
 
       const bank = await banksService.createBank(admin.id, `Cache Test Bank ${randomUUID()}`);
-      const after = await getDescriptionTree();
+      const after = await getWorkspaceNav();
 
-      expect(before.some((b) => b.bankId === bank.id)).toBe(false);
-      expect(after.some((b) => b.bankId === bank.id)).toBe(true);
+      expect(before.banks.some((b) => b.id === bank.id)).toBe(false);
+      expect(after.banks.some((b) => b.id === bank.id)).toBe(true);
 
       await db.delete(banks).where(eq(banks.id, bank.id));
     } finally {
@@ -73,34 +72,38 @@ describe("description tree cache", () => {
   });
 
   it("never serves a leftover payload from an old version when the key goes missing", async () => {
-    await redis.del("tree:version");
+    await redis.del("nav:version");
     // What a counter scheme would have produced before the key vanished.
     await redis.set(
-      "tree:v1",
-      JSON.stringify([{ bankId: "stale", bankName: "Stale", loanTypes: [] }]),
+      "nav:v1",
+      JSON.stringify({
+        statuses: [],
+        loanTypes: [],
+        banks: [{ id: "stale", name: "Stale", loanTypes: [] }],
+      }),
       "EX",
       60,
     );
     try {
-      const tree = await getDescriptionTree();
-      expect(tree.some((b) => b.bankId === "stale")).toBe(false);
+      const tree = await getWorkspaceNav();
+      expect(tree.banks.some((b) => b.id === "stale")).toBe(false);
     } finally {
-      await redis.del("tree:v1");
+      await redis.del("nav:v1");
     }
   });
 
   it("rebuilds once, not once per request, when many requests miss at the same time", async () => {
-    await invalidateDescriptionTreeCache();
+    await invalidateWorkspaceCache();
     buildSpy.mockClear();
 
-    const results = await Promise.all(Array.from({ length: 50 }, () => getDescriptionTree()));
+    const results = await Promise.all(Array.from({ length: 50 }, () => getWorkspaceNav()));
 
     expect(buildSpy).toHaveBeenCalledTimes(1);
     for (const r of results) expect(r).toEqual(results[0]);
   });
 
   it("never caches a failed rebuild: every overlapping waiter sees the error, the next request retries", async () => {
-    await invalidateDescriptionTreeCache();
+    await invalidateWorkspaceCache();
     buildSpy.mockClear();
     // Fails after a delay, like a real rebuild would, so the concurrent
     // requests genuinely overlap it (an instant rejection would settle
@@ -114,19 +117,17 @@ describe("description tree cache", () => {
         }),
     );
 
-    const outcomes = await Promise.allSettled(
-      Array.from({ length: 5 }, () => getDescriptionTree()),
-    );
+    const outcomes = await Promise.allSettled(Array.from({ length: 5 }, () => getWorkspaceNav()));
     expect(outcomes.map((o) => o.status)).toEqual(Array(5).fill("rejected"));
     expect(buildSpy).toHaveBeenCalledTimes(1);
 
-    await expect(getDescriptionTree()).resolves.toBeInstanceOf(Array);
+    await expect(getWorkspaceNav()).resolves.toHaveProperty("banks");
     expect(buildSpy).toHaveBeenCalledTimes(2);
   });
 
   describe("in-process copy keyed by version", () => {
     it("serves a warm read without fetching the payload from Redis, and still sees another instance's invalidation", async () => {
-      await getDescriptionTree(); // warm this instance
+      await getWorkspaceNav(); // warm this instance
       const getSpy = vi.spyOn(redis, "get");
       // A bank inserted directly, bypassing the service, so nothing invalidates.
       const [bank] = await db
@@ -135,31 +136,32 @@ describe("description tree cache", () => {
         .returning();
       if (!bank) throw new Error("fixture insert failed");
       try {
-        const warm = await getDescriptionTree();
-        expect(warm.some((b) => b.bankId === bank.id)).toBe(false); // served from memory
-        expect(getSpy.mock.calls.map(([key]) => key)).toEqual(["tree:version"]); // no payload fetch
+        const warm = await getWorkspaceNav();
+        expect(warm.banks.some((b) => b.id === bank.id)).toBe(false); // served from memory
+        expect(getSpy.mock.calls.map(([key]) => key)).toEqual(["nav:version"]); // no payload fetch
 
         // What another instance's admin write does: replace the version token.
-        await redis.set("tree:version", randomUUID());
-        const after = await getDescriptionTree();
-        expect(after.some((b) => b.bankId === bank.id)).toBe(true);
+        await redis.set("nav:version", randomUUID());
+        const after = await getWorkspaceNav();
+        expect(after.banks.some((b) => b.id === bank.id)).toBe(true);
       } finally {
         getSpy.mockRestore();
         await db.delete(banks).where(eq(banks.id, bank.id));
-        await invalidateDescriptionTreeCache();
+        await invalidateWorkspaceCache();
       }
     });
 
     it("hands out a frozen tree, so no request can mutate another's view", async () => {
-      const tree = await getDescriptionTree();
+      const tree = await getWorkspaceNav();
       expect(Object.isFrozen(tree)).toBe(true);
+      expect(Object.isFrozen(tree.banks)).toBe(true);
       expect(() => {
-        (tree as unknown as unknown[]).push({});
+        (tree.banks as unknown as unknown[]).push({});
       }).toThrow(TypeError);
     });
 
     it("isn't used when Redis is down: reads fall through to Postgres, fresh", async () => {
-      await getDescriptionTree(); // warm memo
+      await getWorkspaceNav(); // warm memo
       const [bank] = await db
         .insert(banks)
         .values({ name: `Memo Bank ${randomUUID()}` })
@@ -167,12 +169,12 @@ describe("description tree cache", () => {
       if (!bank) throw new Error("fixture insert failed");
       const getSpy = vi.spyOn(redis, "get").mockRejectedValue(new Error("simulated redis outage"));
       try {
-        const tree = await getDescriptionTree();
-        expect(tree.some((b) => b.bankId === bank.id)).toBe(true);
+        const tree = await getWorkspaceNav();
+        expect(tree.banks.some((b) => b.id === bank.id)).toBe(true);
       } finally {
         getSpy.mockRestore();
         await db.delete(banks).where(eq(banks.id, bank.id));
-        await invalidateDescriptionTreeCache();
+        await invalidateWorkspaceCache();
       }
     });
   });

@@ -1,7 +1,7 @@
 import { db } from "../../db/client.js";
 import { loanTypes } from "../../db/schema/index.js";
 import { recordAudit } from "../../lib/audit.js";
-import { invalidateDescriptionTreeCache } from "../../lib/cache.js";
+import { invalidateWorkspaceCache } from "../../lib/cache.js";
 import {
   ConflictError,
   HasDependentDescriptionsError,
@@ -39,7 +39,7 @@ export async function createLoanType(actorId: string, name: string): Promise<Loa
     throw error;
   }
 
-  await invalidateDescriptionTreeCache();
+  await invalidateWorkspaceCache();
   return loanType;
 }
 
@@ -79,7 +79,7 @@ export async function updateLoanType(actorId: string, id: string, name: string):
     throw error;
   }
 
-  await invalidateDescriptionTreeCache();
+  await invalidateWorkspaceCache();
   return after;
 }
 
@@ -117,7 +117,7 @@ export async function softDeleteLoanType(actorId: string, id: string): Promise<L
     return after;
   });
 
-  await invalidateDescriptionTreeCache();
+  await invalidateWorkspaceCache();
   return result;
 }
 
@@ -148,6 +148,6 @@ export async function undeleteLoanType(actorId: string, id: string): Promise<Loa
     return updated;
   });
 
-  await invalidateDescriptionTreeCache();
+  await invalidateWorkspaceCache();
   return after;
 }
