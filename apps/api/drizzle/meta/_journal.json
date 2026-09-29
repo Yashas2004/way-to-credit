@@ -50,6 +50,13 @@
       "when": 1790617429360,
       "tag": "0006_issue_immutability",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790670182312,
+      "tag": "0007_users_archive",
+      "breakpoints": true
     }
   ]
 }
