@@ -14,7 +14,9 @@ export type AuditAction =
   | "credit_adjustment"
   | "issue_reply"
   | "issue_resolve"
-  | "issue_reopen";
+  | "issue_reopen"
+  | "archive"
+  | "unarchive";
 
 export interface AuditEntry {
   actorId: string;

@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { sessions, users } from "../../db/schema/index.js";
 import type { DbOrTx } from "../../db/types.js";
 
@@ -12,6 +12,7 @@ const SAFE_COLUMNS = {
   isActive: users.isActive,
   lastSeenAt: users.lastSeenAt,
   createdAt: users.createdAt,
+  archivedAt: users.archivedAt,
 };
 
 export interface CreateUserInput {
@@ -29,8 +30,34 @@ export async function createUser(db: DbOrTx, input: CreateUserInput) {
   return row;
 }
 
-export async function listUsers(db: DbOrTx) {
-  return db.select(SAFE_COLUMNS).from(users).orderBy(asc(users.userId));
+export async function listUsers(db: DbOrTx, archived: "exclude" | "include" | "only") {
+  const where =
+    archived === "exclude"
+      ? isNull(users.archivedAt)
+      : archived === "only"
+        ? isNotNull(users.archivedAt)
+        : undefined;
+  return db.select(SAFE_COLUMNS).from(users).where(where).orderBy(asc(users.userId));
+}
+
+/** Archiving implies deactivation — both in one statement (the CHECK constraint requires it). */
+export async function archiveUser(db: DbOrTx, id: string, archivedBy: string) {
+  const [row] = await db
+    .update(users)
+    .set({ archivedAt: sql`now()`, archivedBy, isActive: false })
+    .where(eq(users.id, id))
+    .returning(SAFE_COLUMNS);
+  return row;
+}
+
+/** Clears the archive only: the user stays deactivated until separately reactivated. */
+export async function unarchiveUser(db: DbOrTx, id: string) {
+  const [row] = await db
+    .update(users)
+    .set({ archivedAt: null, archivedBy: null })
+    .where(eq(users.id, id))
+    .returning(SAFE_COLUMNS);
+  return row;
 }
 
 export async function findUserById(db: DbOrTx, id: string) {

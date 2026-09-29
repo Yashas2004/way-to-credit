@@ -1,5 +1,6 @@
 import {
   CreateUserRequestSchema,
+  ListUsersQuerySchema,
   ResetUserPasswordRequestSchema,
   uuidParam,
 } from "@way-to-credit/shared";
@@ -27,9 +28,13 @@ usersRouter.post("/", async (req, res, next) => {
   }
 });
 
-usersRouter.get("/", async (_req, res, next) => {
+usersRouter.get("/", async (req, res, next) => {
   try {
-    const users = await usersService.listUsers();
+    const parsed = ListUsersQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      throw new ValidationError('archived must be "exclude", "include" or "only".');
+    }
+    const users = await usersService.listUsers(parsed.data.archived);
     res.status(200).json(users);
   } catch (error) {
     next(error);
@@ -57,6 +62,30 @@ usersRouter.post("/:id/reactivate", async (req, res, next) => {
     }
     const user = await usersService.reactivateUser(requireActorId(req), idResult.data);
     res.status(200).json(user);
+  } catch (error) {
+    next(error);
+  }
+});
+
+usersRouter.post("/:id/archive", async (req, res, next) => {
+  try {
+    const idResult = uuidParam.safeParse(req.params.id);
+    if (!idResult.success) {
+      throw new ValidationError("Invalid user id.");
+    }
+    res.status(200).json(await usersService.archiveUser(requireActorId(req), idResult.data));
+  } catch (error) {
+    next(error);
+  }
+});
+
+usersRouter.post("/:id/unarchive", async (req, res, next) => {
+  try {
+    const idResult = uuidParam.safeParse(req.params.id);
+    if (!idResult.success) {
+      throw new ValidationError("Invalid user id.");
+    }
+    res.status(200).json(await usersService.unarchiveUser(requireActorId(req), idResult.data));
   } catch (error) {
     next(error);
   }

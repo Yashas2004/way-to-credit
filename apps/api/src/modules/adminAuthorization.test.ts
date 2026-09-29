@@ -46,6 +46,8 @@ const ROUTES: { method: "get" | "post" | "patch" | "delete" | "put"; path: strin
   { method: "post", path: `/api/admin/users/${ID}/deactivate` },
   { method: "post", path: `/api/admin/users/${ID}/reactivate` },
   { method: "post", path: `/api/admin/users/${ID}/reset-password` },
+  { method: "post", path: `/api/admin/users/${ID}/archive` },
+  { method: "post", path: `/api/admin/users/${ID}/unarchive` },
   { method: "post", path: `/api/admin/users/${ID}/credits` },
 
   { method: "get", path: "/api/admin/export" },

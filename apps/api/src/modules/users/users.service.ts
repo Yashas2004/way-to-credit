@@ -57,8 +57,64 @@ export async function createUser(actorId: string, input: CreateUserInput): Promi
   return user;
 }
 
-export async function listUsers(): Promise<AdminUserView[]> {
-  return usersRepo.listUsers(db);
+export async function listUsers(
+  archived: "exclude" | "include" | "only" = "exclude",
+): Promise<AdminUserView[]> {
+  return usersRepo.listUsers(db, archived);
+}
+
+/**
+ * Archive = "this person has left". Implies deactivation (also enforced by
+ * a CHECK constraint) and revokes their sessions in the same transaction,
+ * so they're signed out at their next request and can't sign in again.
+ * Nothing is deleted: queries, credits, sessions, help requests and audit
+ * rows all stay attached. Archiving an archived user is a no-op.
+ */
+export async function archiveUser(actorId: string, id: string): Promise<AdminUserView> {
+  return db.transaction(async (tx) => {
+    const before = await usersRepo.findUserById(tx, id);
+    if (!before) throw new NotFoundError("User not found.");
+    if (before.archivedAt) return before;
+
+    const updated = await usersRepo.archiveUser(tx, id, actorId);
+    if (!updated) throw new NotFoundError("User not found.");
+    await usersRepo.revokeAllActiveSessionsForUser(tx, id);
+    await recordAudit(tx, {
+      actorId,
+      actorType: "admin",
+      action: "archive",
+      entityType: ENTITY_TYPE,
+      entityId: id,
+      before,
+      after: updated,
+    });
+    return updated;
+  });
+}
+
+/**
+ * Brings an archived user back into the list — deactivated. Access is never
+ * restored as a side effect; reactivating is a separate, deliberate action.
+ */
+export async function unarchiveUser(actorId: string, id: string): Promise<AdminUserView> {
+  return db.transaction(async (tx) => {
+    const before = await usersRepo.findUserById(tx, id);
+    if (!before) throw new NotFoundError("User not found.");
+    if (!before.archivedAt) return before;
+
+    const updated = await usersRepo.unarchiveUser(tx, id);
+    if (!updated) throw new NotFoundError("User not found.");
+    await recordAudit(tx, {
+      actorId,
+      actorType: "admin",
+      action: "unarchive",
+      entityType: ENTITY_TYPE,
+      entityId: id,
+      before,
+      after: updated,
+    });
+    return updated;
+  });
 }
 
 export async function deactivateUser(actorId: string, id: string): Promise<AdminUserView> {
@@ -100,6 +156,12 @@ export async function reactivateUser(actorId: string, id: string): Promise<Admin
     const before = await usersRepo.findUserById(tx, id);
     if (!before) {
       throw new NotFoundError("User not found.");
+    }
+
+    if (before.archivedAt) {
+      // Otherwise the CHECK constraint would reject it as a 500; and access
+      // must never come back to an archived user without unarchiving first.
+      throw new ConflictError("This user is archived. Unarchive them first, then reactivate.");
     }
 
     const updated = await usersRepo.setUserActive(tx, id, true);

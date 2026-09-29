@@ -32,6 +32,7 @@ const USER: AdminUserView = {
   isActive: true,
   lastSeenAt: null,
   createdAt: "2026-01-01T00:00:00.000Z",
+  archivedAt: null,
 };
 
 function renderPage() {

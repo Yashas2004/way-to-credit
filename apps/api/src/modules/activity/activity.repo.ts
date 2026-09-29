@@ -108,7 +108,9 @@ export async function getStats(db: DbOrTx): Promise<Stats> {
       totalUsers: sql<number>`count(*)::int`,
       activeUsersLast5Minutes: sql<number>`count(*) filter (where ${users.lastSeenAt} >= now() - interval '5 minutes')::int`,
     })
-    .from(users);
+    .from(users)
+    // Archived users have left: they're not counted as users, active or otherwise.
+    .where(isNull(users.archivedAt));
 
   const [bankStats] = await db
     .select({ totalBanks: sql<number>`count(*)::int` })

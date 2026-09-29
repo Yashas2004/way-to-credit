@@ -134,4 +134,119 @@ describe("users admin API", () => {
     expect(JSON.stringify(resetAudit)).not.toContain("$argon2id$");
     expect(JSON.stringify(resetAudit)).not.toContain("A-New-Password-456!");
   });
+
+  describe("archiving", () => {
+    interface UserBody {
+      id: string;
+      isActive: boolean;
+      archivedAt: string | null;
+    }
+    const list = async (archived?: string) =>
+      (
+        await request(app)
+          .get(`/api/admin/users${archived ? `?archived=${archived}` : ""}`)
+          .set("Cookie", cookie)
+      ).body as UserBody[];
+
+    it("hides archived users by default and shows them under the filter", async () => {
+      const user = await createUser(`test-user-${randomUUID()}`);
+      const archived = await request(app)
+        .post(`/api/admin/users/${user.id}/archive`)
+        .set("Cookie", cookie);
+      expect(archived.status).toBe(200);
+      expect((archived.body as UserBody).archivedAt).not.toBeNull();
+      expect((archived.body as UserBody).isActive).toBe(false); // archiving implies deactivation
+
+      expect((await list()).some((u) => u.id === user.id)).toBe(false);
+      expect((await list("include")).some((u) => u.id === user.id)).toBe(true);
+      const only = await list("only");
+      expect(only.some((u) => u.id === user.id)).toBe(true);
+      expect(only.every((u) => u.archivedAt !== null)).toBe(true);
+
+      expect(
+        (await request(app).get("/api/admin/users?archived=bogus").set("Cookie", cookie)).status,
+      ).toBe(400);
+    });
+
+    it("an archived user is signed out and cannot sign in or refresh", async () => {
+      const userId = `test-user-${randomUUID()}`;
+      const user = await createUser(userId);
+      const login = await request(app)
+        .post("/api/auth/login")
+        .send({ identifier: userId, password: TEST_PASSWORD });
+      expect(login.status).toBe(200);
+      const cookies = ([] as string[])
+        .concat(login.headers["set-cookie"] ?? [])
+        .map((c) => c.split(";")[0])
+        .join("; ");
+
+      await request(app).post(`/api/admin/users/${user.id}/archive`).set("Cookie", cookie);
+
+      expect((await request(app).get("/api/auth/me").set("Cookie", cookies)).status).toBe(401);
+      expect((await request(app).post("/api/auth/refresh").set("Cookie", cookies)).status).toBe(
+        401,
+      );
+      const again = await request(app)
+        .post("/api/auth/login")
+        .send({ identifier: userId, password: TEST_PASSWORD });
+      expect(again.status).toBe(401);
+    });
+
+    it("unarchiving leaves the user deactivated; reactivating an archived user is refused", async () => {
+      const user = await createUser(`test-user-${randomUUID()}`);
+      await request(app).post(`/api/admin/users/${user.id}/archive`).set("Cookie", cookie);
+
+      const refused = await request(app)
+        .post(`/api/admin/users/${user.id}/reactivate`)
+        .set("Cookie", cookie);
+      expect(refused.status).toBe(409);
+
+      const unarchived = await request(app)
+        .post(`/api/admin/users/${user.id}/unarchive`)
+        .set("Cookie", cookie);
+      expect(unarchived.status).toBe(200);
+      expect((unarchived.body as UserBody).archivedAt).toBeNull();
+      expect((unarchived.body as UserBody).isActive).toBe(false); // access never comes back silently
+
+      const reactivated = await request(app)
+        .post(`/api/admin/users/${user.id}/reactivate`)
+        .set("Cookie", cookie);
+      expect(reactivated.status).toBe(200);
+      expect((reactivated.body as UserBody).isActive).toBe(true);
+    });
+
+    it("writes an audit row for archive and unarchive, and repeating either is a no-op", async () => {
+      const user = await createUser(`test-user-${randomUUID()}`);
+      await request(app).post(`/api/admin/users/${user.id}/archive`).set("Cookie", cookie);
+      await request(app).post(`/api/admin/users/${user.id}/archive`).set("Cookie", cookie);
+      await request(app).post(`/api/admin/users/${user.id}/unarchive`).set("Cookie", cookie);
+      await request(app).post(`/api/admin/users/${user.id}/unarchive`).set("Cookie", cookie);
+      const actions = (await db.select().from(auditLog).where(eq(auditLog.entityId, user.id)))
+        .map((a) => a.action)
+        .filter((a) => a === "archive" || a === "unarchive")
+        .sort();
+      expect(actions).toEqual(["archive", "unarchive"]);
+    });
+
+    it("the database refuses an archived user who is active", async () => {
+      const user = await createUser(`test-user-${randomUUID()}`);
+      await expect(
+        db
+          .update(users)
+          .set({ archivedAt: new Date(), isActive: true })
+          .where(eq(users.id, user.id)),
+      ).rejects.toThrow();
+    });
+
+    it("archived users are not counted on the dashboard", async () => {
+      const stats = async () =>
+        (await request(app).get("/api/admin/stats").set("Cookie", cookie)).body as {
+          totalUsers: number;
+        };
+      const user = await createUser(`test-user-${randomUUID()}`);
+      const before = (await stats()).totalUsers;
+      await request(app).post(`/api/admin/users/${user.id}/archive`).set("Cookie", cookie);
+      expect((await stats()).totalUsers).toBe(before - 1);
+    });
+  });
 });
