@@ -1,34 +1,49 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { Badge } from "../../components/Badge";
 import { Button } from "../../components/Button";
 import { Card } from "../../components/Card";
+import { Combobox } from "../../components/Combobox";
 import { EmptyState } from "../../components/EmptyState";
 import { ErrorState } from "../../components/ErrorState";
-import { Select } from "../../components/Select";
 import { Spinner } from "../../components/Spinner";
+import { ApiError } from "../../lib/api";
 import { fetchDescription, fetchWorkspaceNav } from "../../lib/userApi";
 import { RaiseQueryModal, type RaiseQueryContext } from "./RaiseQueryModal";
 
 const NA_BODY = "NA";
 
+interface Triple {
+  bankId: string;
+  loanTypeId: string;
+  statusId: string;
+}
+
+/**
+ * Choose a bank, loan type and status with three typeahead comboboxes, then
+ * ask for the description: "Show description" or Enter. Nothing loads before
+ * that, so changing your mind costs nothing. The description query is keyed
+ * to the *submitted* triple, not the live selection: change a selection
+ * after a description is shown and it stays visible, marked stale, until you
+ * ask again. It is never silently swapped for a different combination.
+ */
 export function WorkspacePage() {
   // No retry: a failed or timed-out navigation load says so at once, rather
   // than retrying behind a spinner (a 5 s timeout retried once kept users
   // waiting 12 s to learn something was wrong). The Retry button is right there.
-  const treeQuery = useQuery({
+  const navQuery = useQuery({
     queryKey: ["user", "navigation"],
     queryFn: fetchWorkspaceNav,
     retry: false,
   });
-
   const [bankId, setBankId] = useState("");
   const [loanTypeId, setLoanTypeId] = useState("");
   const [statusId, setStatusId] = useState("");
+  const [submitted, setSubmitted] = useState<Triple | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
-  const nav = treeQuery.data;
+  const nav = navQuery.data;
   const banks = nav?.banks ?? [];
   const selectedBank = banks.find((b) => b.id === bankId);
   const loanTypes = useMemo(
@@ -38,37 +53,44 @@ export function WorkspacePage() {
         : [],
     [nav, selectedBank],
   );
-  // A bank with nothing wired to it yet is a real, valid state — say so,
-  // rather than presenting a silently empty dropdown.
+  // A bank with nothing attached yet is a real, valid state: say so rather
+  // than present a silently empty list.
   const bankHasNoLoanTypes = Boolean(selectedBank) && loanTypes.length === 0;
-  const selectedLoanType = loanTypes.find((lt) => lt.id === loanTypeId);
   // Statuses are global: every live status applies to every attached pair.
   const statuses = useMemo(
-    () =>
-      selectedLoanType ? [...(nav?.statuses ?? [])].sort((a, b) => a.sortOrder - b.sortOrder) : [],
-    [nav, selectedLoanType],
+    () => [...(nav?.statuses ?? [])].sort((a, b) => a.sortOrder - b.sortOrder),
+    [nav],
   );
-  const selectedStatus = statuses.find((s) => s.id === statusId);
-
   const allSelected = Boolean(bankId && loanTypeId && statusId);
+
   const descriptionQuery = useQuery({
-    queryKey: ["user", "description", bankId, loanTypeId, statusId],
-    queryFn: () => fetchDescription(bankId, loanTypeId, statusId),
-    enabled: allSelected,
+    queryKey: [
+      "user",
+      "description",
+      submitted?.bankId,
+      submitted?.loanTypeId,
+      submitted?.statusId,
+    ],
+    queryFn: () =>
+      submitted
+        ? fetchDescription(submitted.bankId, submitted.loanTypeId, submitted.statusId)
+        : Promise.reject(new Error("Nothing submitted yet.")),
+    enabled: submitted !== null,
   });
 
-  function handleBankChange(value: string) {
-    setBankId(value);
-    setLoanTypeId("");
-    setStatusId("");
+  const stale =
+    submitted !== null &&
+    (submitted.bankId !== bankId ||
+      submitted.loanTypeId !== loanTypeId ||
+      submitted.statusId !== statusId);
+
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (!allSelected) return;
+    setSubmitted({ bankId, loanTypeId, statusId });
   }
 
-  function handleLoanTypeChange(value: string) {
-    setLoanTypeId(value);
-    setStatusId("");
-  }
-
-  if (treeQuery.isPending) {
+  if (navQuery.isPending) {
     return (
       <div className="flex justify-center py-16">
         <Spinner size="lg" label="Loading banks and loan types" />
@@ -76,12 +98,16 @@ export function WorkspacePage() {
     );
   }
 
-  if (treeQuery.isError) {
+  if (navQuery.isError) {
     return (
       <ErrorState
-        message="We couldn't load the bank and loan type list. Check your connection and try again."
+        message={
+          navQuery.error instanceof ApiError && navQuery.error.status === 503
+            ? `We couldn't load the bank and loan type list: ${navQuery.error.message}`
+            : "We couldn't load the bank and loan type list. Check your connection and try again."
+        }
         action={
-          <Button variant="secondary" onClick={() => void treeQuery.refetch()}>
+          <Button variant="secondary" onClick={() => void navQuery.refetch()}>
             Retry
           </Button>
         }
@@ -98,15 +124,25 @@ export function WorkspacePage() {
     );
   }
 
+  // Everything the result card shows comes from the submitted triple.
+  const shownBank = submitted ? banks.find((b) => b.id === submitted.bankId) : undefined;
+  const shownLoanType = submitted
+    ? nav?.loanTypes.find((lt) => lt.id === submitted.loanTypeId)
+    : undefined;
+  const shownStatusIndex = submitted
+    ? statuses.findIndex((st) => st.id === submitted.statusId)
+    : -1;
+  const shownStatus = shownStatusIndex >= 0 ? statuses[shownStatusIndex] : undefined;
+
   const raiseQueryContext: RaiseQueryContext | null =
-    selectedBank && selectedLoanType && selectedStatus
+    shownBank && shownLoanType && shownStatus
       ? {
-          bankId: selectedBank.id,
-          bankName: selectedBank.name,
-          loanTypeId: selectedLoanType.id,
-          loanTypeName: selectedLoanType.name,
-          statusId: selectedStatus.id,
-          statusName: selectedStatus.name,
+          bankId: shownBank.id,
+          bankName: shownBank.name,
+          loanTypeId: shownLoanType.id,
+          loanTypeName: shownLoanType.name,
+          statusId: shownStatus.id,
+          statusName: shownStatus.name,
         }
       : null;
 
@@ -115,60 +151,88 @@ export function WorkspacePage() {
       <div>
         <h1 className="font-serif text-h1 text-ink">Workspace</h1>
         <p className="mt-1 text-body text-muted">
-          Choose a bank, loan type, and status to see its description.
+          Find a bank, loan type and status (type any part of a name), then show its description.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Select
-          label="Bank"
-          value={bankId}
-          onChange={(e) => {
-            handleBankChange(e.target.value);
-          }}
-          placeholder="Choose a bank"
-          options={banks.map((b) => ({ value: b.id, label: b.name }))}
-        />
-        <Select
-          label="Loan type"
-          value={loanTypeId}
-          onChange={(e) => {
-            handleLoanTypeChange(e.target.value);
-          }}
-          placeholder={bankHasNoLoanTypes ? "None available" : "Choose a loan type"}
-          disabled={!bankId || bankHasNoLoanTypes}
-          {...(!bankId
-            ? { hint: "Choose a bank first" }
-            : bankHasNoLoanTypes
-              ? { hint: "This bank has no loan types attached yet." }
-              : {})}
-          options={loanTypes.map((lt) => ({ value: lt.id, label: lt.name }))}
-        />
-        <Select
-          label="Status"
-          value={statusId}
-          onChange={(e) => {
-            setStatusId(e.target.value);
-          }}
-          placeholder="Choose a status"
-          disabled={!loanTypeId}
-          {...(!loanTypeId ? { hint: "Choose a loan type first" } : {})}
-          options={statuses.map((s, i) => ({
-            value: s.id,
-            label: `${s.name} — step ${String(i + 1)} of ${String(statuses.length)}`,
-          }))}
-        />
-      </div>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <Combobox
+            label="Bank"
+            value={bankId}
+            onChange={(value) => {
+              setBankId(value);
+              setLoanTypeId("");
+              setStatusId("");
+            }}
+            placeholder="Type to search banks"
+            options={banks.map((b) => ({ value: b.id, label: b.name }))}
+          />
+          <Combobox
+            label="Loan type"
+            value={loanTypeId}
+            onChange={(value) => {
+              setLoanTypeId(value);
+              setStatusId("");
+            }}
+            placeholder={bankHasNoLoanTypes ? "None available" : "Type to search loan types"}
+            disabled={!bankId || bankHasNoLoanTypes}
+            {...(!bankId
+              ? { hint: "Choose a bank first" }
+              : bankHasNoLoanTypes
+                ? { hint: "This bank has no loan types attached yet." }
+                : {})}
+            options={loanTypes.map((lt) => ({ value: lt.id, label: lt.name }))}
+          />
+          <Combobox
+            label="Status"
+            value={statusId}
+            onChange={setStatusId}
+            placeholder="Type to search statuses"
+            disabled={!loanTypeId}
+            {...(!loanTypeId ? { hint: "Choose a loan type first" } : {})}
+            options={statuses.map((st, i) => ({
+              value: st.id,
+              label: `${st.name} — step ${String(i + 1)} of ${String(statuses.length)}`,
+            }))}
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button type="submit" variant="primary" disabled={!allSelected}>
+            Show description
+          </Button>
+          <p className="text-small text-muted">
+            {allSelected ? "Or press Enter." : "Choose all three to show the description."}
+          </p>
+        </div>
+      </form>
 
-      {allSelected && selectedStatus && (
+      {submitted && (
         <Card>
+          {stale && (
+            <p
+              role="status"
+              className="mb-3 rounded-sm bg-attention/12 px-3 py-2 text-small text-attention"
+            >
+              Selection changed: press Show description to update. Showing the previous result.
+            </p>
+          )}
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="font-serif text-h2 text-ink">{selectedStatus.name}</h2>
-            <Badge
-              tone="neutral"
-              label="Lifecycle position"
-              position={{ index: statuses.indexOf(selectedStatus) + 1, total: statuses.length }}
-            />
+            <div>
+              <h2 className="font-serif text-h2 text-ink">{shownStatus?.name ?? "Status"}</h2>
+              {shownBank && shownLoanType && (
+                <p className="text-small text-muted">
+                  {shownBank.name} · {shownLoanType.name}
+                </p>
+              )}
+            </div>
+            {shownStatus && (
+              <Badge
+                tone="neutral"
+                label="Lifecycle position"
+                position={{ index: shownStatusIndex + 1, total: statuses.length }}
+              />
+            )}
           </div>
 
           {descriptionQuery.isPending && (
@@ -179,7 +243,11 @@ export function WorkspacePage() {
 
           {descriptionQuery.isError && (
             <ErrorState
-              message="We couldn't load this description. Try again."
+              message={
+                descriptionQuery.error instanceof ApiError && descriptionQuery.error.status === 404
+                  ? descriptionQuery.error.message
+                  : "We couldn't load this description. Try again."
+              }
               action={
                 <Button variant="secondary" onClick={() => void descriptionQuery.refetch()}>
                   Retry
