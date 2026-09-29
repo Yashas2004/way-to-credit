@@ -40,9 +40,9 @@ export function UserShell() {
         then a full-width nav row. At `sm` and up it collapses back into
         the single row the design plan specifies.
       */}
-      <header className="border-b border-muted/20">
+      <header className="border-b border-muted/20 sm:h-14">
         <div
-          className={`${HEADER_CONTAINER} flex flex-col sm:h-14 sm:flex-row sm:items-center sm:justify-between`}
+          className={`${HEADER_CONTAINER} flex flex-col sm:h-full sm:flex-row sm:items-center sm:justify-between`}
         >
           <div className="flex h-14 items-center justify-between px-4 sm:h-auto sm:gap-6 sm:px-0">
             {/* Mobile: the mark alone (28px); the wordmark stays in the
