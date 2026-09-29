@@ -41,7 +41,10 @@ export function QueriesPage() {
   const [toDate, setToDate] = useState("");
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
 
-  const usersQuery = useQuery({ queryKey: ["admin", "users"], queryFn: fetchUsers });
+  const usersQuery = useQuery({
+    queryKey: ["admin", "users", "include"],
+    queryFn: () => fetchUsers("include"),
+  });
 
   const from = fromDate ? istDayRangeUtc(fromDate).fromUtc : undefined;
   const to = toDate ? istDayRangeUtc(toDate).toUtc : undefined;
@@ -106,7 +109,10 @@ export function QueriesPage() {
     }
   }
 
-  const userOptions = (usersQuery.data ?? []).map((u) => ({ value: u.id, label: u.displayName }));
+  const userOptions = (usersQuery.data ?? []).map((u) => ({
+    value: u.id,
+    label: u.archivedAt ? `${u.displayName} (archived)` : u.displayName,
+  }));
 
   return (
     <div className="flex flex-col gap-6 p-6">

@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { AdminUserView } from "@way-to-credit/shared";
+import type { AdminUserView, ListUsersQuery } from "@way-to-credit/shared";
 import { useState } from "react";
 import { Badge } from "../../components/Badge";
 import { Button } from "../../components/Button";
@@ -8,6 +8,7 @@ import { EmptyState } from "../../components/EmptyState";
 import { ErrorState } from "../../components/ErrorState";
 import { Input } from "../../components/Input";
 import { Modal } from "../../components/Modal";
+import { Select } from "../../components/Select";
 import { Spinner } from "../../components/Spinner";
 import {
   Table,
@@ -22,8 +23,10 @@ import { ApiError } from "../../lib/api";
 import {
   createUser,
   deactivateUser,
+  archiveUser,
   fetchUsers,
   reactivateUser,
+  unarchiveUser,
   resetUserPassword,
 } from "../../lib/adminApi";
 import { formatIstDateTime } from "../../lib/format";
@@ -32,13 +35,20 @@ import { CreditAdjustmentModal } from "./CreditAdjustmentModal";
 export function UsersPage() {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
-  const usersQuery = useQuery({ queryKey: ["admin", "users"], queryFn: fetchUsers });
+  // Archived users ("have left") are hidden unless asked for.
+  const [show, setShow] = useState<ListUsersQuery["archived"]>("exclude");
+  const usersQuery = useQuery({
+    queryKey: ["admin", "users", show],
+    queryFn: () => fetchUsers(show),
+  });
 
   const [createOpen, setCreateOpen] = useState(false);
   const [resetPasswordUser, setResetPasswordUser] = useState<AdminUserView | null>(null);
   const [deactivateUserRow, setDeactivateUserRow] = useState<AdminUserView | null>(null);
   const [creditAdjustUser, setCreditAdjustUser] = useState<AdminUserView | null>(null);
   const [pendingReactivateId, setPendingReactivateId] = useState<string | null>(null);
+  const [archiveUserRow, setArchiveUserRow] = useState<AdminUserView | null>(null);
+  const [pendingUnarchiveId, setPendingUnarchiveId] = useState<string | null>(null);
 
   function invalidateUsers() {
     return queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
@@ -57,6 +67,22 @@ export function UsersPage() {
     }
   }
 
+  async function handleUnarchive(user: AdminUserView) {
+    setPendingUnarchiveId(user.id);
+    try {
+      await unarchiveUser(user.id);
+      await invalidateUsers();
+      showToast(
+        `${user.displayName} is unarchived. They're still deactivated: reactivate them to restore access.`,
+        "success",
+      );
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : "Couldn't unarchive this user.", "error");
+    } finally {
+      setPendingUnarchiveId(null);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6 p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -72,6 +98,21 @@ export function UsersPage() {
         >
           Create user
         </Button>
+      </div>
+
+      <div className="max-w-xs">
+        <Select
+          label="Show"
+          value={show}
+          onChange={(e) => {
+            setShow(e.target.value as ListUsersQuery["archived"]);
+          }}
+          options={[
+            { value: "exclude", label: "Current users" },
+            { value: "include", label: "Current and archived" },
+            { value: "only", label: "Archived only" },
+          ]}
+        />
       </div>
 
       {usersQuery.isPending && (
@@ -93,20 +134,31 @@ export function UsersPage() {
 
       {usersQuery.data &&
         (usersQuery.data.length === 0 ? (
-          <EmptyState
-            title="No users yet"
-            description="Create the first user account to get started."
-            action={
-              <Button
-                variant="primary"
-                onClick={() => {
-                  setCreateOpen(true);
-                }}
-              >
-                Create user
-              </Button>
-            }
-          />
+          show === "only" ? (
+            <EmptyState
+              title="No archived users"
+              description="Users you archive appear here. Archiving keeps all their history."
+            />
+          ) : (
+            <EmptyState
+              title="No users to show"
+              description={
+                show === "exclude"
+                  ? "Create a user to get started. Archived users are hidden: choose “Current and archived” under Show to see them."
+                  : "Create the first user account to get started."
+              }
+              action={
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    setCreateOpen(true);
+                  }}
+                >
+                  Create user
+                </Button>
+              }
+            />
+          )
         ) : (
           <Table>
             <TableHead>
@@ -128,54 +180,76 @@ export function UsersPage() {
                   <TableCell>
                     <Badge
                       tone={user.isActive ? "success" : "neutral"}
-                      label={user.isActive ? "Active" : "Deactivated"}
+                      label={
+                        user.archivedAt ? "Archived" : user.isActive ? "Active" : "Deactivated"
+                      }
                     />
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-small text-muted">
                     {user.lastSeenAt ? `${formatIstDateTime(user.lastSeenAt)} IST` : "Never"}
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-1.5 whitespace-nowrap">
+                    {user.archivedAt ? (
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => {
-                          setCreditAdjustUser(user);
-                        }}
+                        loading={pendingUnarchiveId === user.id}
+                        onClick={() => void handleUnarchive(user)}
                       >
-                        Adjust credits
+                        Unarchive
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setResetPasswordUser(user);
-                        }}
-                      >
-                        Reset password
-                      </Button>
-                      {user.isActive ? (
+                    ) : (
+                      <div className="flex items-center gap-1.5 whitespace-nowrap">
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="text-negative"
                           onClick={() => {
-                            setDeactivateUserRow(user);
+                            setCreditAdjustUser(user);
                           }}
                         >
-                          Deactivate
+                          Adjust credits
                         </Button>
-                      ) : (
                         <Button
                           variant="ghost"
                           size="sm"
-                          loading={pendingReactivateId === user.id}
-                          onClick={() => void handleReactivate(user.id)}
+                          onClick={() => {
+                            setResetPasswordUser(user);
+                          }}
                         >
-                          Reactivate
+                          Reset password
                         </Button>
-                      )}
-                    </div>
+                        {user.isActive ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-negative"
+                            onClick={() => {
+                              setDeactivateUserRow(user);
+                            }}
+                          >
+                            Deactivate
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            loading={pendingReactivateId === user.id}
+                            onClick={() => void handleReactivate(user.id)}
+                          >
+                            Reactivate
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setArchiveUserRow(user);
+                          }}
+                        >
+                          Archive
+                        </Button>
+                      </div>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -210,6 +284,34 @@ export function UsersPage() {
           }}
         />
       )}
+
+      <ConfirmDialog
+        isOpen={archiveUserRow !== null}
+        onClose={() => {
+          setArchiveUserRow(null);
+        }}
+        title="Archive user"
+        description={
+          archiveUserRow
+            ? `Archive ${archiveUserRow.displayName}? They'll be signed out and can't sign in. Their queries, credits and history stay exactly as they are. You can unarchive them later; they come back deactivated, and you can reactivate them separately.`
+            : ""
+        }
+        confirmLabel="Archive"
+        onConfirm={async () => {
+          if (!archiveUserRow) return;
+          try {
+            await archiveUser(archiveUserRow.id);
+            await invalidateUsers();
+            showToast(`${archiveUserRow.displayName} archived.`, "success");
+          } catch (err) {
+            showToast(
+              err instanceof ApiError ? err.message : "Couldn't archive this user.",
+              "error",
+            );
+          }
+          setArchiveUserRow(null);
+        }}
+      />
 
       <ConfirmDialog
         isOpen={deactivateUserRow !== null}

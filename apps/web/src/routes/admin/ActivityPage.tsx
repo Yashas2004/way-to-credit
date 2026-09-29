@@ -110,7 +110,10 @@ function ActivityLogSection() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
-  const usersQuery = useQuery({ queryKey: ["admin", "users"], queryFn: fetchUsers });
+  const usersQuery = useQuery({
+    queryKey: ["admin", "users", "include"],
+    queryFn: () => fetchUsers("include"),
+  });
 
   const from = fromDate ? istDayRangeUtc(fromDate).fromUtc : undefined;
   const to = toDate ? istDayRangeUtc(toDate).toUtc : undefined;
@@ -132,7 +135,10 @@ function ActivityLogSection() {
   });
 
   const items = logQuery.data?.pages.flatMap((page) => page.items) ?? [];
-  const userOptions = (usersQuery.data ?? []).map((u) => ({ value: u.id, label: u.displayName }));
+  const userOptions = (usersQuery.data ?? []).map((u) => ({
+    value: u.id,
+    label: u.archivedAt ? `${u.displayName} (archived)` : u.displayName,
+  }));
 
   return (
     <section className="flex flex-col gap-3">

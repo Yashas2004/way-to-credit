@@ -17,7 +17,7 @@ vi.mock("../../lib/adminApi", async () => {
   };
 });
 
-import { fetchMilestones } from "../../lib/adminApi";
+import { deactivateMilestone, fetchMilestones } from "../../lib/adminApi";
 
 const mockFetchMilestones = vi.mocked(fetchMilestones);
 
@@ -112,5 +112,47 @@ describe("MilestonesPage", () => {
       fireEvent.change(points, { target: { value: invalid } });
       expect(points.value).toBe("");
     }
+  });
+
+  describe("show filter (deactivate + filter, no separate archive state)", () => {
+    const INACTIVE: MilestoneResponse = {
+      ...MILESTONE,
+      id: "m-9",
+      levelNumber: 9,
+      title: "Retired level",
+      isActive: false,
+    };
+
+    it("hides inactive milestones by default and shows them under Inactive and All", async () => {
+      mockFetchMilestones.mockResolvedValue([MILESTONE, INACTIVE]);
+      renderPage();
+      expect(await screen.findByText("Level 2")).toBeInTheDocument();
+      expect(screen.queryByText("Retired level")).not.toBeInTheDocument();
+
+      fireEvent.change(screen.getByLabelText("Show"), { target: { value: "inactive" } });
+      expect(screen.getByText("Retired level")).toBeInTheDocument();
+      expect(screen.queryByText("Level 2")).not.toBeInTheDocument();
+
+      fireEvent.change(screen.getByLabelText("Show"), { target: { value: "all" } });
+      expect(screen.getByText("Retired level")).toBeInTheDocument();
+      expect(screen.getByText("Level 2")).toBeInTheDocument();
+    });
+
+    it("explains where deactivated milestones went when none are active", async () => {
+      mockFetchMilestones.mockResolvedValue([INACTIVE]);
+      renderPage();
+      expect(await screen.findByText(/Deactivated milestones are hidden/)).toBeInTheDocument();
+    });
+
+    it("confirms before deactivating, saying unlocks are kept and it can be undone", async () => {
+      mockFetchMilestones.mockResolvedValue([MILESTONE]);
+      vi.mocked(deactivateMilestone).mockResolvedValue({ ...MILESTONE, isActive: false });
+      renderPage();
+      fireEvent.click(await screen.findByRole("button", { name: "Deactivate" }));
+      const dialog = await openDialog("Deactivate milestone");
+      expect(dialog).toHaveTextContent("Anyone who already unlocked it keeps that unlock");
+      expect(dialog).toHaveTextContent("You can reactivate it later");
+      expect(deactivateMilestone).not.toHaveBeenCalled();
+    });
   });
 });

@@ -46,7 +46,10 @@ export function HelpInboxPage() {
     setParams(next, { replace: true });
   }
 
-  const usersQuery = useQuery({ queryKey: ["admin", "users"], queryFn: fetchUsers });
+  const usersQuery = useQuery({
+    queryKey: ["admin", "users", "include"],
+    queryFn: () => fetchUsers("include"),
+  });
   const list = useInfiniteQuery({
     queryKey: ["admin", "issues", "list", status, userId],
     queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
@@ -61,7 +64,10 @@ export function HelpInboxPage() {
     refetchInterval: POLL_MS,
   });
   const items = list.data ? dedupeById(list.data.pages) : [];
-  const userOptions = (usersQuery.data ?? []).map((u) => ({ value: u.id, label: u.displayName }));
+  const userOptions = (usersQuery.data ?? []).map((u) => ({
+    value: u.id,
+    label: u.archivedAt ? `${u.displayName} (archived)` : u.displayName,
+  }));
 
   return (
     <div className="flex flex-col gap-6 p-6">

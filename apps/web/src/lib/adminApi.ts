@@ -1,4 +1,5 @@
 import type {
+  ListUsersQuery,
   AdminIssueThread,
   AdminListIssuesResponse,
   IssueStatusFilter,
@@ -115,8 +116,15 @@ export function upsertDescription(input: UpsertDescriptionRequest): Promise<unkn
 
 // --- Users -------------------------------------------------------------------
 
-export function fetchUsers(): Promise<AdminUserView[]> {
-  return apiGet<AdminUserView[]>("/api/admin/users");
+/**
+ * `archived`: "exclude" (the Users list's default) hides people who have
+ * left; history pickers (query inbox, help inbox, activity) pass "include"
+ * so archived users stay reachable.
+ */
+export function fetchUsers(
+  archived: ListUsersQuery["archived"] = "exclude",
+): Promise<AdminUserView[]> {
+  return apiGet<AdminUserView[]>(`/api/admin/users?archived=${archived}`);
 }
 export function createUser(input: CreateUserRequest): Promise<AdminUserView> {
   return apiPost<AdminUserView>("/api/admin/users", input);
@@ -129,6 +137,12 @@ export function deactivateUser(id: string): Promise<AdminUserView> {
 }
 export function reactivateUser(id: string): Promise<AdminUserView> {
   return apiPost<AdminUserView>(`/api/admin/users/${id}/reactivate`);
+}
+export function archiveUser(id: string): Promise<AdminUserView> {
+  return apiPost<AdminUserView>(`/api/admin/users/${id}/archive`);
+}
+export function unarchiveUser(id: string): Promise<AdminUserView> {
+  return apiPost<AdminUserView>(`/api/admin/users/${id}/unarchive`);
 }
 
 /**
