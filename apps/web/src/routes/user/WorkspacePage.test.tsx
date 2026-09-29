@@ -6,6 +6,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../components/Toast";
 import { WorkspacePage } from "./WorkspacePage";
 
+vi.mock("../../lib/auth", () => ({
+  useAuth: () => ({ identity: { id: USER_ID, role: "user", identifier: "u1", displayName: "U" } }),
+}));
+
 vi.mock("../../lib/userApi", async () => {
   const actual = await vi.importActual<typeof import("../../lib/userApi")>("../../lib/userApi");
   return {
@@ -15,7 +19,10 @@ vi.mock("../../lib/userApi", async () => {
   };
 });
 
+import { ApiError } from "../../lib/api";
 import { fetchDescription, fetchWorkspaceNav } from "../../lib/userApi";
+
+const USER_ID = "0190a000-0000-7000-8000-000000000001";
 
 const mockFetchNav = vi.mocked(fetchWorkspaceNav);
 const mockFetchDescription = vi.mocked(fetchDescription);
@@ -37,13 +44,13 @@ const NAV: WorkspaceNavResponse = {
   ],
 };
 
-function renderWorkspace(client?: QueryClient) {
+function renderWorkspace(client?: QueryClient, path = "/user/workspace") {
   const queryClient =
     client ??
     new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[path]}>
         <ToastProvider>
           <WorkspacePage />
         </ToastProvider>
@@ -53,6 +60,12 @@ function renderWorkspace(client?: QueryClient) {
 }
 
 const box = (label: string) => screen.getByRole("combobox", { name: label });
+
+function sectionOf(heading: HTMLElement): HTMLElement {
+  const section = heading.closest("section");
+  if (!section) throw new Error("heading is not in a section");
+  return section;
+}
 
 /** Type part of a name and press Enter: picks the first match, like a keyboard user. */
 function pick(label: string, text: string) {
@@ -70,6 +83,7 @@ async function chooseAll(status = "login") {
 
 describe("WorkspacePage", () => {
   beforeEach(() => {
+    window.localStorage.clear();
     mockFetchNav.mockReset();
     mockFetchDescription.mockReset();
     mockFetchNav.mockResolvedValue(NAV);
@@ -191,6 +205,121 @@ describe("WorkspacePage", () => {
     expect(mockFetchNav).toHaveBeenCalledTimes(1);
     await waitFor(() => {
       expect(mockFetchNav).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("summary, URL-held selection and recent lookups", () => {
+    // URL and stored ids are validated as UUIDs, so these use real-shaped ids.
+    const B = "0190a000-0000-7000-8000-00000000000b";
+    const LT = "0190a000-0000-7000-8000-0000000000a1";
+    const ST1 = "0190a000-0000-7000-8000-0000000000c1";
+    const ST2 = "0190a000-0000-7000-8000-0000000000c2";
+    const GONE = "0190a000-0000-7000-8000-0000000000ff";
+    const UUID_NAV: WorkspaceNavResponse = {
+      statuses: [
+        { id: ST1, name: "Login", sortOrder: 1 },
+        { id: ST2, name: "Sanctioned", sortOrder: 2 },
+      ],
+      loanTypes: [{ id: LT, name: "Home Loan" }],
+      banks: [{ id: B, name: "HDFC Bank", loanTypes: [0] }],
+    };
+    const link = (bank: string, loanType: string, status: string) =>
+      `/user/workspace?bank=${bank}&loanType=${loanType}&status=${status}`;
+    const storageKey = `wtc.recent.v1.${USER_ID}`;
+
+    beforeEach(() => {
+      mockFetchNav.mockResolvedValue(UUID_NAV);
+    });
+
+    it("says what's in the system before anything is typed", async () => {
+      mockFetchNav.mockResolvedValue(NAV);
+      renderWorkspace();
+      expect(await screen.findByText("2 banks · 2 loan types · 2 statuses")).toBeInTheDocument();
+    });
+
+    it("opening a link to a combination shows its description exactly once, with the fields filled", async () => {
+      renderWorkspace(undefined, link(B, LT, ST2));
+      expect(await screen.findByText("Loan fully repaid and account closed.")).toBeInTheDocument();
+      expect(mockFetchDescription).toHaveBeenCalledTimes(1);
+      expect(mockFetchDescription).toHaveBeenCalledWith(B, LT, ST2);
+      expect(box("Bank")).toHaveValue("HDFC Bank");
+      expect(box("Status")).toHaveValue("Sanctioned — step 2 of 2");
+      expect(screen.getByText("Step 2 of 2 in the loan lifecycle")).toBeInTheDocument();
+      await new Promise((r) => setTimeout(r, 50));
+      expect(mockFetchDescription).toHaveBeenCalledTimes(1);
+    });
+
+    it("editing after opening a link marks the result stale and fetches nothing", async () => {
+      renderWorkspace(undefined, link(B, LT, ST2));
+      await screen.findByText("Loan fully repaid and account closed.");
+      pick("Status", "login");
+      expect(screen.getByText(/Selection changed/)).toBeInTheDocument();
+      expect(mockFetchDescription).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([
+      ["malformed ids", link("not-a-uuid", LT, ST1)],
+      ["a withdrawn status", link(B, LT, GONE)],
+      ["only some of the three", `/user/workspace?bank=${B}`],
+    ])("says a link is no longer available for %s, and fetches nothing", async (_, path) => {
+      renderWorkspace(undefined, path);
+      expect(
+        await screen.findByText("That combination is no longer available. Choose again above."),
+      ).toBeInTheDocument();
+      expect(box("Bank")).toHaveValue("");
+      expect(mockFetchDescription).not.toHaveBeenCalled();
+    });
+
+    it("remembers a successful lookup (ids and time only), and lists it before anything is typed", async () => {
+      const first = renderWorkspace();
+      await screen.findByRole("combobox", { name: "Bank" });
+      expect(screen.queryByRole("heading", { name: "Recent lookups" })).not.toBeInTheDocument();
+      pick("Bank", "hdfc");
+      pick("Loan type", "home");
+      pick("Status", "login");
+      fireEvent.click(screen.getByRole("button", { name: "Show description" }));
+      await screen.findByText("Loan fully repaid and account closed.");
+
+      await waitFor(() => {
+        expect(window.localStorage.getItem(storageKey)).not.toBeNull();
+      });
+      const stored = JSON.parse(window.localStorage.getItem(storageKey) ?? "[]") as unknown[];
+      expect(stored).toHaveLength(1);
+      expect(Object.keys(stored[0] as object).sort()).toEqual([
+        "at",
+        "bankId",
+        "loanTypeId",
+        "statusId",
+      ]);
+      first.unmount();
+
+      renderWorkspace();
+      const recent = await screen.findByRole("heading", { name: "Recent lookups" });
+      const row = within(sectionOf(recent)).getByRole("link");
+      expect(row).toHaveAttribute("href", link(B, LT, ST1));
+      expect(row).toHaveTextContent("HDFC Bank · Home Loan");
+      expect(row).toHaveTextContent("Login");
+    });
+
+    it("clicking a recent lookup shows it", async () => {
+      window.localStorage.setItem(
+        storageKey,
+        JSON.stringify([
+          { bankId: B, loanTypeId: LT, statusId: ST1, at: new Date().toISOString() },
+        ]),
+      );
+      renderWorkspace();
+      const recent = await screen.findByRole("heading", { name: "Recent lookups" });
+      fireEvent.click(within(sectionOf(recent)).getByRole("link"));
+      expect(await screen.findByText("Loan fully repaid and account closed.")).toBeInTheDocument();
+      expect(mockFetchDescription).toHaveBeenCalledWith(B, LT, ST1);
+    });
+
+    it("does not remember a lookup that failed", async () => {
+      mockFetchDescription.mockRejectedValue(new ApiError("NOT_FOUND", "Not available.", 404));
+      renderWorkspace(undefined, link(B, LT, ST1));
+      expect(await screen.findByText("Not available.")).toBeInTheDocument();
+      expect(window.localStorage.getItem(storageKey)).toBeNull();
     });
   });
 });

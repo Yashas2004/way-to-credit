@@ -24,3 +24,25 @@ export function formatRetryAfter(seconds: number): string {
   const hours = Math.round(minutes / 60);
   return `in about ${String(hours)} hour${hours === 1 ? "" : "s"}`;
 }
+
+const istDateFormatter = new Intl.DateTimeFormat("en-IN", {
+  timeZone: "Asia/Kolkata",
+  day: "numeric",
+  month: "short",
+});
+
+/**
+ * "just now", "12 min ago", "3 h ago", "yesterday", "4 days ago", then the IST
+ * date: how long ago, in the fewest words that still say it.
+ */
+export function formatRelativeTime(iso: string, now: Date = new Date()): string {
+  const minutes = Math.floor((now.getTime() - new Date(iso).getTime()) / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${String(minutes)} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${String(hours)} h ago`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${String(days)} days ago`;
+  return istDateFormatter.format(new Date(iso));
+}

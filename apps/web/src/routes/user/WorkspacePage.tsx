@@ -1,24 +1,29 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
-import { Badge } from "../../components/Badge";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "../../components/Button";
 import { Card } from "../../components/Card";
 import { Combobox } from "../../components/Combobox";
 import { EmptyState } from "../../components/EmptyState";
 import { ErrorState } from "../../components/ErrorState";
+import { RecentLookups } from "../../components/RecentLookups";
+import { SequenceDots } from "../../components/SequenceDots";
 import { Spinner } from "../../components/Spinner";
 import { ApiError } from "../../lib/api";
+import { useAuth } from "../../lib/auth";
+import {
+  isAvailable,
+  resolveRecentLookups,
+  sameTriple,
+  tripleFromParams,
+  useRecentLookups,
+  workspaceHref,
+  type Triple,
+} from "../../lib/recentLookups";
 import { fetchDescription, fetchWorkspaceNav } from "../../lib/userApi";
 import { RaiseQueryModal, type RaiseQueryContext } from "./RaiseQueryModal";
 
 const NA_BODY = "NA";
-
-interface Triple {
-  bankId: string;
-  loanTypeId: string;
-  statusId: string;
-}
 
 /**
  * Choose a bank, loan type and status with three typeahead comboboxes, then
@@ -27,6 +32,12 @@ interface Triple {
  * to the *submitted* triple, not the live selection: change a selection
  * after a description is shown and it stays visible, marked stale, until you
  * ask again. It is never silently swapped for a different combination.
+ *
+ * The shown combination lives in the URL (?bank=&loanType=&status=), so a
+ * recent lookup or a My queries row can link straight to it, and Back and
+ * Forward move between lookups. Opening such a link is the request: it shows
+ * that description once. Each successful lookup is remembered in the
+ * per-browser recent list (lib/recentLookups.ts).
  */
 export function WorkspacePage() {
   // No retry: a failed or timed-out navigation load says so at once, rather
@@ -42,6 +53,13 @@ export function WorkspacePage() {
   const [statusId, setStatusId] = useState("");
   const [submitted, setSubmitted] = useState<Triple | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [linkUnavailable, setLinkUnavailable] = useState(false);
+  // The URL params last applied to (or written from) the form, so a URL
+  // change is applied once and our own writes aren't re-applied.
+  const appliedParams = useRef<string | null>(null);
+  const { identity } = useAuth();
+  const recent = useRecentLookups(identity?.id);
 
   const nav = navQuery.data;
   const banks = nav?.banks ?? [];
@@ -78,6 +96,33 @@ export function WorkspacePage() {
     enabled: submitted !== null,
   });
 
+  // Apply a triple from the URL: on arrival, from a recent-lookup link, or
+  // on Back/Forward. Waits for the navigation data to check it still exists.
+  useEffect(() => {
+    if (!nav) return;
+    const key = searchParams.toString();
+    if (key === appliedParams.current) return;
+    appliedParams.current = key;
+    const triple = tripleFromParams(searchParams);
+    if (triple === null) return;
+    if (triple === "invalid" || !isAvailable(nav, triple)) {
+      setLinkUnavailable(true);
+      return;
+    }
+    setLinkUnavailable(false);
+    setBankId(triple.bankId);
+    setLoanTypeId(triple.loanTypeId);
+    setStatusId(triple.statusId);
+    setSubmitted(triple);
+  }, [nav, searchParams]);
+
+  // Remember each lookup that succeeded (an NA description included: it is
+  // worth coming back to). Errors and 404s are not remembered.
+  const { record } = recent;
+  useEffect(() => {
+    if (submitted && descriptionQuery.isSuccess) record(submitted);
+  }, [submitted, descriptionQuery.isSuccess, descriptionQuery.dataUpdatedAt, record]);
+
   const stale =
     submitted !== null &&
     (submitted.bankId !== bankId ||
@@ -87,7 +132,12 @@ export function WorkspacePage() {
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (!allSelected) return;
-    setSubmitted({ bankId, loanTypeId, statusId });
+    const triple = { bankId, loanTypeId, statusId };
+    setSubmitted(triple);
+    setLinkUnavailable(false);
+    const params = new URL(workspaceHref(triple), window.location.origin).searchParams;
+    appliedParams.current = params.toString();
+    setSearchParams(params);
   }
 
   if (navQuery.isPending) {
@@ -134,6 +184,16 @@ export function WorkspacePage() {
     : -1;
   const shownStatus = shownStatusIndex >= 0 ? statuses[shownStatusIndex] : undefined;
 
+  // The combination on screen isn't repeated in the list beside it.
+  const recentItems = (nav ? resolveRecentLookups(recent.entries, nav) : []).filter(
+    (item) => !submitted || !sameTriple(item, submitted),
+  );
+  const counts = [
+    plural(banks.length, "bank"),
+    plural(nav?.loanTypes.length ?? 0, "loan type"),
+    plural(statuses.length, "status", "statuses"),
+  ].join(" · ");
+
   const raiseQueryContext: RaiseQueryContext | null =
     shownBank && shownLoanType && shownStatus
       ? {
@@ -147,12 +207,13 @@ export function WorkspacePage() {
       : null;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8">
       <div>
         <h1 className="font-serif text-h1 text-ink">Workspace</h1>
         <p className="mt-1 text-body text-muted">
           Find a bank, loan type and status (type any part of a name), then show its description.
         </p>
+        <p className="mt-1 text-small text-muted">{counts}</p>
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -205,90 +266,100 @@ export function WorkspacePage() {
             {allSelected ? "Or press Enter." : "Choose all three to show the description."}
           </p>
         </div>
+        {linkUnavailable && (
+          <p role="status" className="text-small text-muted">
+            That combination is no longer available. Choose again above.
+          </p>
+        )}
       </form>
 
-      {submitted && (
-        <Card>
-          {stale && (
-            <p
-              role="status"
-              className="mb-3 rounded-sm bg-attention/12 px-3 py-2 text-small text-attention"
-            >
-              Selection changed: press Show description to update. Showing the previous result.
-            </p>
-          )}
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h2 className="font-serif text-h2 text-ink">{shownStatus?.name ?? "Status"}</h2>
+      {submitted ? (
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-12 xl:grid-cols-[minmax(0,1fr)_20rem]">
+          <Card>
+            {stale && (
+              <p
+                role="status"
+                className="mb-3 rounded-sm bg-attention/12 px-3 py-2 text-small text-attention"
+              >
+                Selection changed: press Show description to update. Showing the previous result.
+              </p>
+            )}
+            <div className="mb-4">
               {shownBank && shownLoanType && (
                 <p className="text-small text-muted">
                   {shownBank.name} · {shownLoanType.name}
                 </p>
               )}
+              <h2 className="font-serif text-h2 text-ink">{shownStatus?.name ?? "Status"}</h2>
+              {shownStatus && (
+                <SequenceDots
+                  className="mt-1.5"
+                  value={shownStatusIndex + 1}
+                  total={statuses.length}
+                  label={`Step ${String(shownStatusIndex + 1)} of ${String(statuses.length)} in the loan lifecycle`}
+                />
+              )}
             </div>
-            {shownStatus && (
-              <Badge
-                tone="neutral"
-                label="Lifecycle position"
-                position={{ index: shownStatusIndex + 1, total: statuses.length }}
+
+            {descriptionQuery.isPending && (
+              <div className="flex justify-center py-8">
+                <Spinner label="Loading description" />
+              </div>
+            )}
+
+            {descriptionQuery.isError && (
+              <ErrorState
+                message={
+                  descriptionQuery.error instanceof ApiError &&
+                  descriptionQuery.error.status === 404
+                    ? descriptionQuery.error.message
+                    : "We couldn't load this description. Try again."
+                }
+                action={
+                  <Button variant="secondary" onClick={() => void descriptionQuery.refetch()}>
+                    Retry
+                  </Button>
+                }
               />
             )}
-          </div>
 
-          {descriptionQuery.isPending && (
-            <div className="flex justify-center py-8">
-              <Spinner label="Loading description" />
-            </div>
-          )}
-
-          {descriptionQuery.isError && (
-            <ErrorState
-              message={
-                descriptionQuery.error instanceof ApiError && descriptionQuery.error.status === 404
-                  ? descriptionQuery.error.message
-                  : "We couldn't load this description. Try again."
-              }
-              action={
-                <Button variant="secondary" onClick={() => void descriptionQuery.refetch()}>
-                  Retry
-                </Button>
-              }
-            />
-          )}
-
-          {descriptionQuery.data &&
-            (descriptionQuery.data.body === NA_BODY ? (
-              <div className="flex flex-col items-start gap-3 rounded-sm border border-dashed border-muted/30 px-4 py-5">
-                <p className="text-body text-muted">
-                  No description has been added for this status yet.
-                </p>
-                <Button
-                  variant="primary"
-                  onClick={() => {
-                    setModalOpen(true);
-                  }}
-                >
-                  Raise a query
-                </Button>
-                <QueryHelperLine />
-              </div>
-            ) : (
-              <div className="flex flex-col items-start gap-4">
-                <p className="max-w-[66ch] whitespace-pre-wrap text-body-lg text-ink">
-                  {descriptionQuery.data.body}
-                </p>
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    setModalOpen(true);
-                  }}
-                >
-                  Raise a query
-                </Button>
-                <QueryHelperLine />
-              </div>
-            ))}
-        </Card>
+            {descriptionQuery.data &&
+              (descriptionQuery.data.body === NA_BODY ? (
+                <div className="flex flex-col items-start gap-3 rounded-sm border border-dashed border-muted/30 px-4 py-5">
+                  <p className="text-body text-muted">
+                    No description has been added for this status yet.
+                  </p>
+                  <Button
+                    variant="primary"
+                    onClick={() => {
+                      setModalOpen(true);
+                    }}
+                  >
+                    Raise a query
+                  </Button>
+                  <QueryHelperLine />
+                </div>
+              ) : (
+                <div className="flex flex-col items-start gap-4">
+                  <p className="max-w-[66ch] whitespace-pre-wrap text-body-lg text-ink">
+                    {descriptionQuery.data.body}
+                  </p>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setModalOpen(true);
+                    }}
+                  >
+                    Raise a query
+                  </Button>
+                  <QueryHelperLine />
+                </div>
+              ))}
+          </Card>
+          <RecentLookups items={recentItems} />
+        </div>
+      ) : (
+        <RecentLookups items={recentItems} className="max-w-2xl" />
       )}
 
       {raiseQueryContext && (
@@ -319,4 +390,8 @@ function QueryHelperLine() {
       .
     </p>
   );
+}
+
+function plural(count: number, one: string, many = `${one}s`): string {
+  return `${String(count)} ${count === 1 ? one : many}`;
 }
