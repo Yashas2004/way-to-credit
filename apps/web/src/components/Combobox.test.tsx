@@ -140,4 +140,15 @@ describe("Combobox", () => {
     expect(container.querySelector("li b")).toBeNull();
     expect(container.querySelector("mark")?.textContent).toBe("Home");
   });
+
+  // Found in the browser: after picking (focus still in the field), typing
+  // more appended to the chosen label and searched for "Car Loanhome".
+  it("typing onto the end of a chosen option searches just the new text", () => {
+    render(<Harness initial="car" />);
+    const box = input();
+    expect(box).toHaveValue("Car Loan");
+    fireEvent.change(box, { target: { value: "Car Loanhome" } });
+    expect(box).toHaveValue("home");
+    expect(visibleOptions().map((o) => o.textContent)).toEqual(["HDFC Home Loan"]);
+  });
 });
