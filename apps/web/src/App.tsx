@@ -23,7 +23,7 @@ import { HelpListPage } from "./routes/user/HelpListPage";
 import { HelpThreadPage } from "./routes/user/HelpThreadPage";
 import { MyQueriesPage } from "./routes/user/MyQueriesPage";
 import { RewardsPage } from "./routes/user/RewardsPage";
-import { UserShell } from "./routes/user/UserShell";
+import { NarrowColumn, UserShell } from "./routes/user/UserShell";
 import { WorkspacePage } from "./routes/user/WorkspacePage";
 
 /** Sends an already-authenticated visitor straight to their shell instead of bouncing through the login form. */
@@ -73,9 +73,11 @@ export function App() {
                   <Route index element={<LandingPage />} />
                   <Route path="workspace" element={<WorkspacePage />} />
                   <Route path="queries" element={<MyQueriesPage />} />
-                  <Route path="rewards" element={<RewardsPage />} />
-                  <Route path="help" element={<HelpListPage />} />
-                  <Route path="help/:id" element={<HelpThreadPage />} />
+                  <Route element={<NarrowColumn />}>
+                    <Route path="rewards" element={<RewardsPage />} />
+                    <Route path="help" element={<HelpListPage />} />
+                    <Route path="help/:id" element={<HelpThreadPage />} />
+                  </Route>
                 </Route>
               </Route>
 
