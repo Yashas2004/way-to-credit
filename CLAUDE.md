@@ -160,11 +160,53 @@ rejects a change with `ERRCODE restrict_violation` (SQLSTATE `23001`) and the me
 
 ### Caching
 
-19. The full Bank/LoanType/Status/Description tree is cached in Redis and served from
-    cache on user reads. **Every admin write invalidates the cache in the same request.**
-    A stale dropdown is a correctness bug, not a performance detail.
+19. The Workspace's navigation data — banks, loan types, statuses, and which loan types each
+    bank offers — is cached in Redis and served from cache on user reads, each list shipped
+    **once** (statuses are global and are never repeated per bank or loan type). **Every
+    admin write invalidates the cache in the same request.** A stale dropdown is a
+    correctness bug, not a performance detail. Descriptions are not cached: each lookup is
+    one indexed read of a single (bank, loan type, status) from Postgres, which also
+    re-checks that the bank, loan type and status are live and the pair is attached, so a
+    description is never served stale or for a withdrawn combination.
 20. If Redis is unavailable, reads fall through to Postgres and log a warning.
     Redis being down must never cause a 500.
+
+#### Why the whole navigation list ships to the client (and when to revisit)
+
+This was measured, not assumed, with the real code paths (Stage 0 of the Workspace-at-scale
+stage). Code: `lib/workspaceNav.ts`, `GET /api/user/navigation`, `GET /api/user/description`.
+
+- **What it replaced.** The old tree repeated every global status under every attached
+  bank–loan-type pair, so it grew as banks × loan types per bank × statuses.
+  - At 1000 × 5 × 1000 that was 5 million rows. The query was cancelled by the 5 s
+    `statement_timeout` (21.6 s and 2.2 GB of heap without it), the value couldn't be
+    cached (its JSON exceeds V8's maximum string length), and each load was 474 MB.
+  - Even at realistic scale (50 banks, 20 loan types each, 40 statuses) it was 3.8 MB per
+    load, a 10.4 MB cache value, and ~0.5 s of server CPU per Workspace load.
+- **What ships now** (the once-each shape):
+
+  | Scale                                             | Raw     | Gzipped                                             |
+  | ------------------------------------------------- | ------- | --------------------------------------------------- |
+  | Realistic: 50 banks × 20 loan types × 40 statuses | 12.5 KB | **~5 KB** (4.2 KB measured on the shipped endpoint) |
+  | 1000 banks, 5 loan types each                     | 262 KB  | 90 KB                                               |
+  | 1000 banks, 20 loan types each                    | 319 KB  | 117 KB                                              |
+  | **1000 × 1000 × 1000 at 100 loan types per bank** | 623 KB  | **249 KB**                                          |
+  - The client parses it in under 5 ms at every size.
+  - Realistic time to interactive went from 1.4 s cold / ~0.75 s warm to **~0.16 s**.
+  - One description lookup takes 0.7–1.1 ms at every measured size.
+
+- **Why lazy per-level loading was rejected** (search endpoints per bank and per loan type,
+  a request per keystroke): it adds endpoints, loading states and per-keystroke traffic to
+  save at most ~250 KB gzipped at a ceiling far beyond what this company will run. The
+  realistic case is 50× smaller than that.
+- **When to revisit.** Size grows with the number of attached bank–loan-type _pairs_,
+  not with banks or statuses alone.
+  - Lazy loading starts to earn its place at roughly **1 million attached pairs** (every
+    one of 1000 banks offering all 1000 loan types). That's an estimated ~5 MB raw and
+    **~2 MB gzipped**, extrapolated, not measured.
+  - **Trigger:** revisit if `GET /api/user/navigation` exceeds **~1 MB gzipped**, or the
+    number of `bank_loan_types` rows exceeds **~500k**.
+  - Until then, ship it whole.
 
 ### General
 
@@ -203,6 +245,29 @@ rejects a change with `ERRCODE restrict_violation` (SQLSTATE `23001`) and the me
       the keyset pages from repeating a row.
     - **Out of scope, deliberately:** attachments, email/SMS notification and real-time
       push. Unread counts ride the 30-second poll.
+
+### Archiving, not deleting
+
+26. Users and milestones are **never deleted**: every reference to them is `ON DELETE
+RESTRICT` (queries, credit transactions, sessions, audit rows, unlocks), and those
+    records are the history. Tidiness comes from hiding finished things, and the word
+    "delete" doesn't appear in the UI for either.
+    - **Users: archived ≠ deactivated.** Deactivated (`is_active = false`) means
+      "temporarily blocked". Archived (`archived_at` set) means "this person has left".
+      - Archiving implies deactivation; the database enforces it with the CHECK
+        `users_archived_implies_inactive`. Archiving also revokes the user's sessions in the
+        same transaction.
+      - Unarchiving leaves the user **deactivated**. Access is restored only by a separate
+        reactivation, and reactivating an archived user is refused (409).
+      - Archived users are hidden from the Users list by default (`?archived=exclude`), are
+        excluded from the dashboard's user counts, and still appear in history pickers
+        (query inbox, help inbox, activity), labelled "(archived)".
+      - Archive and unarchive are audited.
+    - **Milestones: deactivate plus a filter; deliberately no archive state.** Deactivation
+      already stops unlocks, removes the milestone from every rewards map, and leaves
+      existing unlocks untouched. The admin list hides inactive milestones by default
+      (Show: Active / Inactive / All). A second flag nobody could distinguish from
+      `is_active` would be worse than none, so don't add one.
 
 ---
 
@@ -343,7 +408,7 @@ NOBYPASSRLS`.
   never seeds). Then it isn't testing what it claims, and it breaks when order or data
   changes. This has happened twice:
   - `descriptionTree.test.ts` relied on seeded statuses, so it passed locally and failed in CI.
-  - The cache "write then read" test relied on another file having created `tree:version`.
+  - The cache "write then read" test relied on another file having created the cache version key (then `tree:version`, now `nav:version`).
     That hid a real invalidation bug until the file was run on its own.
 
   In review, run a new or changed test file **on its own against an unseeded database**
