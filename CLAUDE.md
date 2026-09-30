@@ -346,6 +346,35 @@ CI runs `typecheck`, `lint`, `test`, and `build`. All four must pass before merg
   focus rings, 1–2px indicators) uses `brand-ink` (#007494, 4.67:1), never `brand`.
   Bright `brand` is used thin only on `deep` (4.59:1). Status colours are never the brand hue
   and never carry meaning alone.
+- **After changing `tailwind.config.js`, restart the dev server, then verify any new token
+  in both a freshly started dev server and a production build.** A running dev server can
+  keep the old theme. Classes and `theme()` calls that need a new token are then silently
+  not generated, and elements render unstyled. This broke the login page once: the
+  production build was fine, and only the long-running dev server was wrong. "Verify" means
+  reading computed styles on a real screen, checking the token's own value (not merely "not
+  none"), not just looking at one build.
+- **The design language.**
+  - **The login page is the reference, and is excluded from design-system work.** Don't
+    tokenise, restyle or refactor it. Changes there are accessibility fixes only, each
+    confirmed pixel-identical by screenshot (except the fix's own pixels).
+  - **`Button` has two looks, chosen by context:**
+    - _classic_, the default: the login and standalone pages. Radius pinned to 4px.
+    - _app_: `ButtonStyleProvider` around both shells in `App.tsx`.
+
+    Primary is solid cyan with ink text in both.
+
+  - **Fonts:**
+    - UI text is Plus Jakarta Sans, bundled under its own family name, `Jakarta UI`. The
+      login loads Google's copy under the real name; sharing it changed the login's
+      headings.
+    - No bundled 800 weight.
+    - IBM Plex Serif for display headings.
+  - **The rewards certificate is frozen as designed:** `.certificate-classic` in
+    `RewardsPage` restores IBM Plex Sans and the old 4/8px radii. That's the only reason
+    `@fontsource/ibm-plex-sans` is still a dependency.
+  - **`brand-gradient` is an accent:** today only the admin sidebar's active-item bar. Never
+    a primary action, never a large field on a content screen. More than one use and it
+    stops being an accent.
 - **Derive, don't sync.** Don't copy a prop into state with an effect
   (`useEffect(() => setX(prop), [prop])`). If the prop is rebuilt on every parent render,
   the effect is always pending after a re-render. `Combobox` did this with the chosen
