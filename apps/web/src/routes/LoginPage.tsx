@@ -80,7 +80,7 @@ export function LoginPage() {
       {/* 3D sphere overlapping the edge */}
       <div
         aria-hidden="true"
-        className="absolute hidden md:block"
+        className="motion-reduce:!animate-none absolute hidden md:block"
         style={{
           width: 190,
           height: 190,
@@ -96,7 +96,7 @@ export function LoginPage() {
       {/* bottom-left sphere */}
       <div
         aria-hidden="true"
-        className="absolute hidden md:block"
+        className="motion-reduce:!animate-none absolute hidden md:block"
         style={{
           width: 260,
           height: 260,
@@ -112,7 +112,7 @@ export function LoginPage() {
       {/* bottom-right corner sphere */}
       <div
         aria-hidden="true"
-        className="absolute"
+        className="motion-reduce:!animate-none absolute"
         style={{
           width: 170,
           height: 170,
