@@ -230,7 +230,9 @@ export function LoginPage() {
                 aria-label={showPassword ? "Hide password" : "Show password"}
                 aria-pressed={showPassword}
                 className="font-bold tracking-wide"
-                style={{ color: "#0a86b3", fontSize: 13 }}
+                // brand-ink: 4.81:1 on the field. #0a86b3 was 3.72:1, under the
+                // 4.5:1 that 13px text needs.
+                style={{ color: "#007494", fontSize: 13 }}
               >
                 {showPassword ? "HIDE" : "SHOW"}
               </button>
