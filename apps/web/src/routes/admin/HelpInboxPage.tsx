@@ -120,14 +120,14 @@ export function HelpInboxPage() {
       )}
 
       {items.length > 0 && (
-        <ul className="flex flex-col divide-y divide-muted/10 border-y border-muted/20">
+        <ul className="flex flex-col divide-y divide-muted/10 rounded-md bg-white shadow-card">
           {items.map((item) => {
             const badge = ISSUE_STATUS_BADGE.admin[item.status];
             return (
               <li key={item.id} data-testid="issue-row">
                 <Link
                   to={`/admin/help/${item.id}`}
-                  className="flex flex-col gap-1 px-3 py-2.5 hover:bg-ink/5 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                  className="flex flex-col gap-1 px-4 py-2.5 hover:bg-ink/5 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
                 >
                   <div className="min-w-0">
                     <p

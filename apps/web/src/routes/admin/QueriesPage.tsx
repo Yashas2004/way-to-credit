@@ -18,6 +18,7 @@ import { approveQuery, fetchAdminQueries, fetchUsers, rejectQuery } from "../../
 import { formatIstDateTime } from "../../lib/format";
 import { useActorNames, type ActorName } from "../../lib/useActorNames";
 import { ActorLabel } from "../../components/ActorLabel";
+import { FIELD_BORDER, FIELD_CLASSES } from "../../components/fieldStyles";
 import { istDayRangeUtc } from "../../lib/ist";
 
 const PAGE_SIZE = 20;
@@ -157,7 +158,7 @@ export function QueriesPage() {
             onChange={(e) => {
               setFromDate(e.target.value);
             }}
-            className="rounded-sm border border-muted/40 bg-white px-3 py-2 text-body text-ink"
+            className={`${FIELD_CLASSES} ${FIELD_BORDER}`}
           />
         </label>
         <label className="flex flex-col gap-1.5">
@@ -168,7 +169,7 @@ export function QueriesPage() {
             onChange={(e) => {
               setToDate(e.target.value);
             }}
-            className="rounded-sm border border-muted/40 bg-white px-3 py-2 text-body text-ink"
+            className={`${FIELD_CLASSES} ${FIELD_BORDER}`}
           />
         </label>
       </div>
@@ -215,7 +216,7 @@ export function QueriesPage() {
       )}
 
       {items.length > 0 && (
-        <ul className="flex flex-col divide-y divide-muted/15">
+        <ul className="flex flex-col divide-y divide-muted/10 rounded-md bg-white shadow-card">
           {items.map((item) => (
             <QueryRow
               key={item.id}
@@ -258,7 +259,7 @@ function QueryRow({
   onReject: () => void;
 }) {
   return (
-    <li className="flex flex-col gap-2 py-4">
+    <li className="flex flex-col gap-2 px-5 py-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-body font-medium text-ink">
           {item.bankNameSnapshot} · {item.loanTypeNameSnapshot} · {item.statusNameSnapshot}

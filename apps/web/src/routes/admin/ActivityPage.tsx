@@ -20,6 +20,7 @@ import { formatIstDateTime } from "../../lib/format";
 import { activityActor } from "../../lib/useActorNames";
 import { useAuth } from "../../lib/auth";
 import { ActorLabel } from "../../components/ActorLabel";
+import { FIELD_BORDER, FIELD_CLASSES } from "../../components/fieldStyles";
 import { istDayRangeUtc } from "../../lib/ist";
 
 const PAGE_SIZE = 20;
@@ -166,7 +167,7 @@ function ActivityLogSection() {
             onChange={(e) => {
               setFromDate(e.target.value);
             }}
-            className="rounded-sm border border-muted/40 bg-white px-3 py-2 text-body text-ink"
+            className={`${FIELD_CLASSES} ${FIELD_BORDER}`}
           />
         </label>
         <label className="flex flex-col gap-1.5">
@@ -177,7 +178,7 @@ function ActivityLogSection() {
             onChange={(e) => {
               setToDate(e.target.value);
             }}
-            className="rounded-sm border border-muted/40 bg-white px-3 py-2 text-body text-ink"
+            className={`${FIELD_CLASSES} ${FIELD_BORDER}`}
           />
         </label>
       </div>

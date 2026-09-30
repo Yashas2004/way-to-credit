@@ -147,9 +147,9 @@ export function DashboardPage() {
                 description="Logins and logouts will show up here."
               />
             ) : (
-              <ul className="flex flex-col divide-y divide-muted/10">
+              <ul className="flex flex-col divide-y divide-muted/10 rounded-md bg-white shadow-card">
                 {activityQuery.data.items.map((row) => (
-                  <li key={row.id} className="flex items-center justify-between gap-3 py-3">
+                  <li key={row.id} className="flex items-center justify-between gap-3 px-4 py-3">
                     <div className="flex flex-col gap-0.5">
                       <span className="text-body text-ink">
                         <ActorLabel actor={activityActor(row, identity?.id)} />
@@ -198,9 +198,9 @@ export function DashboardPage() {
                 description="There are no pending queries right now."
               />
             ) : (
-              <ul className="flex flex-col divide-y divide-muted/10">
+              <ul className="flex flex-col divide-y divide-muted/10 rounded-md bg-white shadow-card">
                 {pendingQuery.data.items.map((item) => (
-                  <li key={item.id} className="flex flex-col gap-1 py-3">
+                  <li key={item.id} className="flex flex-col gap-1 px-4 py-3">
                     <Link
                       to="/admin/queries"
                       className="text-body font-medium text-ink hover:text-brand-ink"

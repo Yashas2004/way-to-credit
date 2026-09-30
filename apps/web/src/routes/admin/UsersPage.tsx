@@ -85,8 +85,10 @@ export function UsersPage() {
 
   return (
     <div className="flex flex-col gap-6 p-6">
+      {/* The text block shrinks so the action stays beside it: with the
+          wider UI font, a fixed block pushed the button onto its own line. */}
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0 flex-1">
           <h1 className="font-serif text-h1 text-ink">Users</h1>
           <p className="mt-1 text-body text-muted">Create, credit, and manage user accounts.</p>
         </div>

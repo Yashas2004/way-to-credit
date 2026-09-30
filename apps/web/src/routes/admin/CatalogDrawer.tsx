@@ -266,7 +266,7 @@ function NamedEntitySection({
                   onChange={(e) => {
                     setEditName(e.target.value);
                   }}
-                  className="flex-1 rounded-sm border border-muted/40 px-2 py-1 text-body text-ink"
+                  className="flex-1 rounded-control border border-muted/20 bg-field px-2 py-1 text-body text-ink"
                 />
                 <Button
                   variant="primary"
@@ -514,7 +514,7 @@ function StatusSection() {
                   onChange={(e) => {
                     setEditName(e.target.value);
                   }}
-                  className="flex-1 rounded-sm border border-muted/40 px-2 py-1 text-body text-ink"
+                  className="flex-1 rounded-control border border-muted/20 bg-field px-2 py-1 text-body text-ink"
                 />
                 <input
                   value={editSortOrder}
@@ -524,7 +524,7 @@ function StatusSection() {
                     // Same whole-number-only rule as IntegerInput.
                     if (/^\d*$/.test(e.target.value)) setEditSortOrder(e.target.value);
                   }}
-                  className="w-20 rounded-sm border border-muted/40 px-2 py-1 text-body text-ink"
+                  className="w-20 rounded-control border border-muted/20 bg-field px-2 py-1 text-body text-ink"
                 />
                 <Button
                   variant="primary"
