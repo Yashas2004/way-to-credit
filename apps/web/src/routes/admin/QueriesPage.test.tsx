@@ -6,6 +6,12 @@ import { ToastProvider } from "../../components/Toast";
 import { ApiError } from "../../lib/api";
 import { QueriesPage } from "./QueriesPage";
 
+vi.mock("../../lib/auth", () => ({
+  useAuth: () => ({
+    identity: { id: "admin-self", role: "admin", identifier: "admin1", displayName: "Admin User" },
+  }),
+}));
+
 vi.mock("../../lib/adminApi", async () => {
   const actual = await vi.importActual<typeof import("../../lib/adminApi")>("../../lib/adminApi");
   return {
@@ -167,5 +173,51 @@ describe("QueriesPage", () => {
 
     fireEvent.change(screen.getByLabelText("From"), { target: { value: "2026-02-10" } });
     expect(await screen.findByText("No queries match these filters")).toBeInTheDocument();
+  });
+
+  // UUID v7 ids start with a timestamp, so users created together shared the
+  // same 8-character prefix and every row read "raised by 01a0f18c".
+  it("names who raised each query, telling apart users whose ids share a prefix", async () => {
+    const a = "01a0f18c-0000-7000-8000-00000000000a";
+    const b = "01a0f18c-0000-7000-8000-00000000000b";
+    mockFetchUsers.mockResolvedValue([
+      {
+        id: a,
+        userId: "user1",
+        displayName: "Ramesh Kumar",
+        creditPoints: 0,
+        isActive: true,
+        lastSeenAt: null,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        archivedAt: null,
+      },
+      {
+        id: b,
+        userId: "user2",
+        displayName: "Priya Nair",
+        creditPoints: 0,
+        isActive: false,
+        lastSeenAt: null,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        archivedAt: "2026-02-01T00:00:00.000Z",
+      },
+    ]);
+    mockFetchAdminQueries.mockResolvedValue({
+      items: [
+        { ...PENDING_ITEM, id: "q-a", raisedBy: a },
+        { ...PENDING_ITEM, id: "q-b", raisedBy: b },
+      ],
+      nextCursor: null,
+    });
+    renderPage();
+    // The user filter's <select> lists the same names; check the rows themselves.
+    // Rows and names load separately; wait for both.
+    await waitFor(() => {
+      const rows = screen.getAllByRole("listitem");
+      expect(rows).toHaveLength(2);
+      expect(rows[0]).toHaveTextContent("raised by Ramesh Kumar · user1");
+      expect(rows[1]).toHaveTextContent("raised by Priya Nair (archived) · user2");
+    });
+    expect(document.body).not.toHaveTextContent("01a0f18c");
   });
 });

@@ -16,6 +16,8 @@ import { useToast } from "../../components/Toast";
 import { ApiError } from "../../lib/api";
 import { approveQuery, fetchAdminQueries, fetchUsers, rejectQuery } from "../../lib/adminApi";
 import { formatIstDateTime } from "../../lib/format";
+import { useActorNames, type ActorName } from "../../lib/useActorNames";
+import { ActorLabel } from "../../components/ActorLabel";
 import { istDayRangeUtc } from "../../lib/ist";
 
 const PAGE_SIZE = 20;
@@ -41,6 +43,7 @@ export function QueriesPage() {
   const [toDate, setToDate] = useState("");
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
 
+  const { nameFor } = useActorNames();
   const usersQuery = useQuery({
     queryKey: ["admin", "users", "include"],
     queryFn: () => fetchUsers("include"),
@@ -217,6 +220,7 @@ export function QueriesPage() {
             <QueryRow
               key={item.id}
               item={item}
+              raisedBy={nameFor("user", item.raisedBy)}
               pending={pendingIds.has(item.id)}
               onApprove={() => void handleAction(item.id, "approve")}
               onReject={() => void handleAction(item.id, "reject")}
@@ -242,11 +246,13 @@ export function QueriesPage() {
 
 function QueryRow({
   item,
+  raisedBy,
   pending,
   onApprove,
   onReject,
 }: {
   item: AdminQueryRow;
+  raisedBy: ActorName;
   pending: boolean;
   onApprove: () => void;
   onReject: () => void;
@@ -261,8 +267,7 @@ function QueryRow({
       </div>
       <p className="text-body text-ink">{item.message}</p>
       <p className="text-small text-muted">
-        Raised {formatIstDateTime(item.raisedAt)} IST · raised by{" "}
-        <span className="font-mono">{item.raisedBy.slice(0, 8)}</span>
+        Raised {formatIstDateTime(item.raisedAt)} IST · raised by <ActorLabel actor={raisedBy} />
       </p>
       {item.status === "pending" && (
         <div className="mt-1 flex items-center gap-2">

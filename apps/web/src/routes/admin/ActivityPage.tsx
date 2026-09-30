@@ -17,6 +17,8 @@ import {
 } from "../../components/Table";
 import { fetchActiveSessions, fetchActivityLog, fetchUsers } from "../../lib/adminApi";
 import { formatIstDateTime } from "../../lib/format";
+import { useActorNames } from "../../lib/useActorNames";
+import { ActorLabel } from "../../components/ActorLabel";
 import { istDayRangeUtc } from "../../lib/ist";
 
 const PAGE_SIZE = 20;
@@ -110,6 +112,7 @@ function ActivityLogSection() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
+  const { nameFor } = useActorNames();
   const usersQuery = useQuery({
     queryKey: ["admin", "users", "include"],
     queryFn: () => fetchUsers("include"),
@@ -216,8 +219,7 @@ function ActivityLogSection() {
             {items.map((row) => (
               <TableRow key={row.id}>
                 <TableCell>
-                  {row.actorType === "admin" ? "Admin" : "User"}{" "}
-                  <span className="font-mono text-small text-muted">{row.actorId.slice(0, 8)}</span>
+                  <ActorLabel actor={nameFor(row.actorType, row.actorId)} />
                 </TableCell>
                 <TableCell>
                   <Badge tone={EVENT_TONE[row.event]} label={EVENT_LABEL[row.event]} />

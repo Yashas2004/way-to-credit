@@ -4,20 +4,28 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DashboardPage } from "./DashboardPage";
 
+vi.mock("../../lib/auth", () => ({
+  useAuth: () => ({
+    identity: { id: "admin-self", role: "admin", identifier: "admin1", displayName: "Admin User" },
+  }),
+}));
+
 vi.mock("../../lib/adminApi", async () => {
   const actual = await vi.importActual<typeof import("../../lib/adminApi")>("../../lib/adminApi");
   return {
     ...actual,
     fetchStats: vi.fn(),
     fetchActivityLog: vi.fn(),
+    fetchUsers: vi.fn(),
     fetchAdminQueries: vi.fn(),
   };
 });
 
-import { fetchActivityLog, fetchAdminQueries, fetchStats } from "../../lib/adminApi";
+import { fetchActivityLog, fetchAdminQueries, fetchStats, fetchUsers } from "../../lib/adminApi";
 
 const mockFetchStats = vi.mocked(fetchStats);
 vi.mocked(fetchActivityLog).mockResolvedValue({ items: [], nextCursor: null });
+vi.mocked(fetchUsers).mockResolvedValue([]);
 vi.mocked(fetchAdminQueries).mockResolvedValue({ items: [], nextCursor: null });
 
 function renderWithPending(pendingQueryCount: number, awaitingAdminIssueCount = 0) {
@@ -72,5 +80,50 @@ describe("DashboardPage pending-query count", () => {
     const count = await screen.findByTestId("awaiting-issue-count");
     expect(count.className).toContain("text-ink");
     expect(count.className).not.toContain("text-attention");
+  });
+});
+
+describe("DashboardPage recent activity", () => {
+  it("names each actor instead of showing an id fragment; the viewing admin is 'You'", async () => {
+    const userId = "01a0f18c-0000-7000-8000-00000000000a";
+    vi.mocked(fetchUsers).mockResolvedValue([
+      {
+        id: userId,
+        userId: "user1",
+        displayName: "Ramesh Kumar",
+        creditPoints: 0,
+        isActive: true,
+        lastSeenAt: null,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        archivedAt: null,
+      },
+    ]);
+    vi.mocked(fetchActivityLog).mockResolvedValue({
+      items: [
+        {
+          id: "a1",
+          actorId: userId,
+          actorType: "user",
+          event: "login",
+          occurredAt: "2026-01-01T05:00:00.000Z",
+          ip: null,
+          userAgent: null,
+        },
+        {
+          id: "a2",
+          actorId: "admin-self",
+          actorType: "admin",
+          event: "login",
+          occurredAt: "2026-01-01T04:00:00.000Z",
+          ip: null,
+          userAgent: null,
+        },
+      ],
+      nextCursor: null,
+    });
+    renderWithPending(0);
+    expect(await screen.findByText("Ramesh Kumar")).toBeInTheDocument();
+    expect(screen.getByText("You")).toBeInTheDocument();
+    expect(screen.queryByText(/01a0f18c/)).not.toBeInTheDocument();
   });
 });
