@@ -55,7 +55,7 @@ export function IssueThread({ entries, status, viewer, onReply, actions }: Issue
           entry.kind === "message" ? (
             <li
               key={entry.id}
-              className={`rounded-sm border-l-2 bg-surface px-4 py-3 ${
+              className={`rounded-sm border-l-2 bg-surface px-4 py-3 shadow-card ${
                 entry.authorType === "admin" ? "border-brand-ink" : "border-muted/40"
               }`}
             >

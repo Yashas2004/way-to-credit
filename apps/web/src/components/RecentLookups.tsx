@@ -24,12 +24,12 @@ export function RecentLookups({ items, limit = 5, className = "" }: RecentLookup
       <h2 id={headingId} className="mb-2 text-h3 font-medium text-muted">
         Recent lookups
       </h2>
-      <ul className="divide-y divide-muted/15 border-y border-muted/15">
+      <ul className="divide-y divide-muted/10 overflow-hidden rounded-md bg-white shadow-card">
         {items.slice(0, limit).map((item) => (
           <li key={`${item.bankId}/${item.loanTypeId}/${item.statusId}`}>
             <Link
               to={workspaceHref(item)}
-              className="-mx-2 flex items-baseline justify-between gap-4 rounded-sm px-2 py-2.5 hover:bg-ink/5"
+              className="flex items-baseline justify-between gap-4 px-4 py-2.5 hover:bg-ink/5"
             >
               <span className="min-w-0">
                 <span className="block truncate text-small text-muted">

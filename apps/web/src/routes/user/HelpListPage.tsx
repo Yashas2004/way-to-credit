@@ -29,8 +29,10 @@ export function HelpListPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* The text block shrinks so the action stays beside it: with the
+          wider UI font, a fixed block pushed the button onto its own line. */}
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0 flex-1">
           <h1 className="font-serif text-h1 text-ink">Help requests</h1>
           <p className="mt-1 max-w-[66ch] text-body text-muted">
             For anything else: trouble with the portal, your account, or a question for the admin
@@ -72,7 +74,7 @@ export function HelpListPage() {
       )}
 
       {items.length > 0 && (
-        <ul className="flex flex-col divide-y divide-muted/15 rounded-md border border-muted/20 bg-surface">
+        <ul className="flex flex-col divide-y divide-muted/10 rounded-md bg-white shadow-card">
           {items.map((item) => {
             const badge = ISSUE_STATUS_BADGE.user[item.status];
             return (

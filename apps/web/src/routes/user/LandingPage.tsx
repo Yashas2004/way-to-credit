@@ -183,13 +183,10 @@ function RepliesSection({ query, items }: { query: LoadState; items: IssueSummar
         </Link>
       }
     >
-      <ul className="divide-y divide-muted/15 border-y border-muted/15">
+      <ul className="divide-y divide-muted/10 overflow-hidden rounded-md bg-white shadow-card">
         {items.slice(0, LIST_LIMIT).map((issue) => (
           <li key={issue.id}>
-            <Link
-              to={`/user/help/${issue.id}`}
-              className="-mx-2 block rounded-sm px-2 py-2.5 hover:bg-ink/5"
-            >
+            <Link to={`/user/help/${issue.id}`} className="block px-4 py-2.5 hover:bg-ink/5">
               <span className="block text-body font-medium text-ink">{issue.subject}</span>
               <span className="block text-small text-muted">
                 Admin replied {formatRelativeTime(issue.lastActivityAt)}
@@ -280,9 +277,9 @@ function PendingSection({ query, items }: { query: LoadState; items: QueryRow[] 
         </Link>
       }
     >
-      <ul className="divide-y divide-muted/15 border-y border-muted/15">
+      <ul className="divide-y divide-muted/10 overflow-hidden rounded-md bg-white shadow-card">
         {items.slice(0, LIST_LIMIT).map((q) => (
-          <li key={q.id} className="py-2.5">
+          <li key={q.id} className="px-4 py-2.5">
             <span className="block truncate text-small text-muted">
               {q.bankNameSnapshot} · {q.loanTypeNameSnapshot}
             </span>

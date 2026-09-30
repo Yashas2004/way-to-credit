@@ -91,7 +91,7 @@ export function MyQueriesPage() {
       )}
 
       {items.length > 0 && (
-        <ul className="flex flex-col divide-y divide-muted/15 rounded-md border border-muted/20 bg-white">
+        <ul className="flex flex-col divide-y divide-muted/10 rounded-md bg-white shadow-card">
           {/* One scannable grid from md up: what and why | outcome | when.
               Below md the three stack, outcome and date sharing a line. */}
           {items.map((item) => (
