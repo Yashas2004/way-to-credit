@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import type { ActivityLogRow } from "@way-to-credit/shared";
 import { useCallback, useMemo } from "react";
 import { fetchUsers } from "./adminApi";
 import { useAuth } from "./auth";
@@ -16,8 +17,8 @@ export interface ActorName {
  * created around the same time showed the same "01a0f18c", so an admin
  * couldn't tell who raised a query. Users resolve through the users list
  * (archived included, labelled), on the same cache key the Queries and
- * Activity pages already use. There's no endpoint listing admins, so an admin
- * is "You" when it's the viewer and "Admin" otherwise.
+ * Activity pages already use. Activity rows carry their actor's name from the
+ * server (admins included), so they use `activityActor` instead.
  */
 export function useActorNames() {
   const { identity } = useAuth();
@@ -44,4 +45,20 @@ export function useActorNames() {
   );
 
   return { nameFor, usersQuery };
+}
+
+/**
+ * An activity row's actor, named server-side for users and admins alike. The
+ * viewing admin gets "(you)" after their name.
+ */
+export function activityActor(
+  row: Pick<ActivityLogRow, "actorId" | "actorName" | "actorHandle" | "actorArchived">,
+  viewerId: string | undefined,
+): ActorName {
+  if (!row.actorName) return { name: "Unknown" };
+  const name = row.actorArchived ? `${row.actorName} (archived)` : row.actorName;
+  return {
+    name: row.actorId === viewerId ? `${name} (you)` : name,
+    ...(row.actorHandle ? { handle: row.actorHandle } : {}),
+  };
 }

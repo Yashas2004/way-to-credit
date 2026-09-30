@@ -20,6 +20,9 @@ interface ActivityRowBody {
   id: string;
   actorId: string;
   event: string;
+  actorName: string | null;
+  actorHandle: string | null;
+  actorArchived: boolean;
 }
 interface ActiveSessionRowBody {
   id: string;
@@ -65,6 +68,30 @@ describe("admin activity monitoring API", () => {
     const body = res.body as { items: ActivityRowBody[] };
     expect(body.items.every((row) => row.actorId === admin.id)).toBe(true);
     expect(body.items.some((row) => row.event === "login")).toBe(true);
+  });
+
+  // Both actor types are named server-side: there's no endpoint listing
+  // admins, so the client can't name them itself.
+  it("GET /activity names each actor, admin and user alike", async () => {
+    const adminRes = await request(app)
+      .get(`/api/admin/activity?actorId=${admin.id}`)
+      .set("Cookie", adminCookie);
+    const adminRow = (adminRes.body as { items: ActivityRowBody[] }).items[0];
+    expect(adminRow).toMatchObject({
+      actorName: "Test Admin",
+      actorHandle: admin.adminId,
+      actorArchived: false,
+    });
+
+    const userRes = await request(app)
+      .get(`/api/admin/activity?actorId=${user.id}`)
+      .set("Cookie", adminCookie);
+    const userRow = (userRes.body as { items: ActivityRowBody[] }).items[0];
+    expect(userRow).toMatchObject({
+      actorName: "Test User",
+      actorHandle: user.userId,
+      actorArchived: false,
+    });
   });
 
   it("GET /sessions/active includes the logged-in user with a non-null lastSeenAt", async () => {

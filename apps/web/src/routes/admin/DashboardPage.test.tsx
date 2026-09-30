@@ -84,46 +84,44 @@ describe("DashboardPage pending-query count", () => {
 });
 
 describe("DashboardPage recent activity", () => {
-  it("names each actor instead of showing an id fragment; the viewing admin is 'You'", async () => {
-    const userId = "01a0f18c-0000-7000-8000-00000000000a";
-    vi.mocked(fetchUsers).mockResolvedValue([
-      {
-        id: userId,
-        userId: "user1",
-        displayName: "Ramesh Kumar",
-        creditPoints: 0,
-        isActive: true,
-        lastSeenAt: null,
-        createdAt: "2026-01-01T00:00:00.000Z",
-        archivedAt: null,
-      },
-    ]);
+  it("names every actor from the server, other admins included; the viewer is marked '(you)'", async () => {
+    const base = { event: "login" as const, ip: null, userAgent: null, actorArchived: false };
     vi.mocked(fetchActivityLog).mockResolvedValue({
       items: [
         {
+          ...base,
           id: "a1",
-          actorId: userId,
+          actorId: "01a0f18c-0000-7000-8000-00000000000a",
           actorType: "user",
-          event: "login",
           occurredAt: "2026-01-01T05:00:00.000Z",
-          ip: null,
-          userAgent: null,
+          actorName: "Ramesh Kumar",
+          actorHandle: "user1",
         },
         {
+          ...base,
           id: "a2",
+          actorId: "admin-other",
+          actorType: "admin",
+          occurredAt: "2026-01-01T04:30:00.000Z",
+          actorName: "Meera Iyer",
+          actorHandle: "admin2",
+        },
+        {
+          ...base,
+          id: "a3",
           actorId: "admin-self",
           actorType: "admin",
-          event: "login",
           occurredAt: "2026-01-01T04:00:00.000Z",
-          ip: null,
-          userAgent: null,
+          actorName: "Admin User",
+          actorHandle: "admin1",
         },
       ],
       nextCursor: null,
     });
     renderWithPending(0);
     expect(await screen.findByText("Ramesh Kumar")).toBeInTheDocument();
-    expect(screen.getByText("You")).toBeInTheDocument();
-    expect(screen.queryByText(/01a0f18c/)).not.toBeInTheDocument();
+    expect(screen.getByText("Meera Iyer")).toBeInTheDocument();
+    expect(screen.getByText("Admin User (you)")).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent("01a0f18c");
   });
 });

@@ -1,6 +1,7 @@
 import { and, desc, eq, gt, gte, isNotNull, isNull, lte, lt, or, sql } from "drizzle-orm";
 import {
   activityLog,
+  admins,
   banks,
   creditTransactions,
   queries,
@@ -10,7 +11,12 @@ import {
 import type { DbOrTx } from "../../db/types.js";
 import { countAwaitingAdmin } from "../issues/issues.repo.js";
 
-export type ActivityLogRow = typeof activityLog.$inferSelect;
+export type ActivityLogRow = typeof activityLog.$inferSelect & {
+  /** The actor's display name and login identifier, joined per actor type; null if the actor no longer exists. */
+  actorName: string | null;
+  actorHandle: string | null;
+  actorArchived: boolean;
+};
 
 export interface ActivityFilters {
   actorId?: string;
@@ -48,12 +54,31 @@ export async function listActivity(
     );
   }
 
-  return db
-    .select()
+  // activity_log.actor_id points at users or admins depending on actor_type,
+  // so the name comes from whichever join matches. Left joins: a row is never
+  // dropped for a missing actor, it just has no name.
+  const rows = await db
+    .select({
+      log: activityLog,
+      userName: users.displayName,
+      userHandle: users.userId,
+      userArchivedAt: users.archivedAt,
+      adminName: admins.displayName,
+      adminHandle: admins.adminId,
+    })
     .from(activityLog)
+    .leftJoin(users, and(eq(activityLog.actorType, "user"), eq(users.id, activityLog.actorId)))
+    .leftJoin(admins, and(eq(activityLog.actorType, "admin"), eq(admins.id, activityLog.actorId)))
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(activityLog.occurredAt), desc(activityLog.id))
     .limit(limit);
+
+  return rows.map((r) => ({
+    ...r.log,
+    actorName: r.userName ?? r.adminName,
+    actorHandle: r.userHandle ?? r.adminHandle,
+    actorArchived: r.userArchivedAt !== null,
+  }));
 }
 
 export interface ActiveSessionRow {

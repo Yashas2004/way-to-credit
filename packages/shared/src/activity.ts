@@ -15,6 +15,15 @@ export const ActivityLogRowSchema = z.object({
   occurredAt: z.string(),
   ip: z.string().nullable(),
   userAgent: z.string().nullable(),
+  /**
+   * Who, by name: a user's or an admin's display name and login identifier,
+   * joined server-side (there's no endpoint listing admins, and an audit log
+   * that can't name who did something is a gap). Null if the actor no
+   * longer exists.
+   */
+  actorName: z.string().nullable(),
+  actorHandle: z.string().nullable(),
+  actorArchived: z.boolean(),
 });
 export type ActivityLogRow = z.infer<typeof ActivityLogRowSchema>;
 

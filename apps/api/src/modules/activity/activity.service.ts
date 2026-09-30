@@ -61,6 +61,9 @@ export async function listActivity(query: ActivityLogQuery): Promise<ActivityLog
       occurredAt: row.occurredAt.toISOString(),
       ip: row.ip,
       userAgent: row.userAgent,
+      actorName: row.actorName,
+      actorHandle: row.actorHandle,
+      actorArchived: row.actorArchived,
     })),
     nextCursor: hasMore && lastRow ? encodeCursor(lastRow) : null,
   };

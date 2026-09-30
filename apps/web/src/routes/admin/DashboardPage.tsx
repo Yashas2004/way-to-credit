@@ -8,7 +8,8 @@ import { ErrorState } from "../../components/ErrorState";
 import { Spinner } from "../../components/Spinner";
 import { fetchActivityLog, fetchAdminQueries, fetchStats } from "../../lib/adminApi";
 import { formatIstDateTime } from "../../lib/format";
-import { useActorNames } from "../../lib/useActorNames";
+import { activityActor } from "../../lib/useActorNames";
+import { useAuth } from "../../lib/auth";
 import { ActorLabel } from "../../components/ActorLabel";
 
 const REFRESH_MS = 30_000;
@@ -26,7 +27,7 @@ const EVENT_LABEL: Record<ActivityEvent, string> = {
 };
 
 export function DashboardPage() {
-  const { nameFor } = useActorNames();
+  const { identity } = useAuth();
   const statsQuery = useQuery({
     queryKey: ["admin", "stats"],
     queryFn: fetchStats,
@@ -151,7 +152,7 @@ export function DashboardPage() {
                   <li key={row.id} className="flex items-center justify-between gap-3 py-3">
                     <div className="flex flex-col gap-0.5">
                       <span className="text-body text-ink">
-                        <ActorLabel actor={nameFor(row.actorType, row.actorId)} />
+                        <ActorLabel actor={activityActor(row, identity?.id)} />
                       </span>
                       <span className="text-small text-muted">
                         {formatIstDateTime(row.occurredAt)} IST
