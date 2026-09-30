@@ -162,7 +162,7 @@ export function Combobox({
             // with just what was typed. Select-on-focus doesn't cover it: the
             // field is often already focused (straight after Enter picks or
             // submits), and a mouse click collapses the selection. Otherwise
-            // "Disbursed — step 5 of 10" + "login" would search for the whole
+            // "HDFC Home Loan" + "car" would search for the whole
             // string and match nothing.
             const typed = e.target.value;
             const label = selected?.label;

@@ -94,7 +94,7 @@ describe("WorkspacePage", () => {
     renderWorkspace();
     await chooseAll();
     expect(box("Loan type")).toHaveValue("HDFC Home Loan");
-    expect(box("Status")).toHaveValue("Login — step 1 of 2");
+    expect(box("Status")).toHaveValue("Login");
     await new Promise((r) => setTimeout(r, 50));
     expect(mockFetchDescription).not.toHaveBeenCalled();
     expect(mockFetchNav).toHaveBeenCalledTimes(1);
@@ -143,7 +143,7 @@ describe("WorkspacePage", () => {
     expect(screen.queryByText(/Selection changed/)).not.toBeInTheDocument();
   });
 
-  it("lists statuses in lifecycle order and resets loan type and status when the bank changes", async () => {
+  it("lists statuses by name in lifecycle order and resets loan type and status when the bank changes", async () => {
     renderWorkspace();
     await chooseAll();
     fireEvent.click(box("Status"));
@@ -152,7 +152,7 @@ describe("WorkspacePage", () => {
       within(listbox)
         .getAllByRole("option")
         .map((o) => o.textContent),
-    ).toEqual(["Login — step 1 of 2", "Sanctioned — step 2 of 2"]);
+    ).toEqual(["Login", "Sanctioned"]);
 
     pick("Bank", "bank b");
     expect(box("Loan type")).toHaveValue("");
@@ -243,7 +243,8 @@ describe("WorkspacePage", () => {
       expect(mockFetchDescription).toHaveBeenCalledTimes(1);
       expect(mockFetchDescription).toHaveBeenCalledWith(B, LT, ST2);
       expect(box("Bank")).toHaveValue("HDFC Bank");
-      expect(box("Status")).toHaveValue("Sanctioned — step 2 of 2");
+      // The field names the status; the position is the result's to show.
+      expect(box("Status")).toHaveValue("Sanctioned");
       expect(screen.getByText("Step 2 of 2 in the loan lifecycle")).toBeInTheDocument();
       await new Promise((r) => setTimeout(r, 50));
       expect(mockFetchDescription).toHaveBeenCalledTimes(1);

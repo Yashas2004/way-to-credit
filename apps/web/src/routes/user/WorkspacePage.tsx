@@ -252,10 +252,10 @@ export function WorkspacePage() {
             placeholder="Type to search statuses"
             disabled={!loanTypeId}
             {...(!loanTypeId ? { hint: "Choose a loan type first" } : {})}
-            options={statuses.map((st, i) => ({
-              value: st.id,
-              label: `${st.name} — step ${String(i + 1)} of ${String(statuses.length)}`,
-            }))}
+            // Names only: the field identifies a status. Its lifecycle
+            // position belongs to the result, shown there as the sequence
+            // dots and "Step n of N". The list stays in lifecycle order.
+            options={statuses.map((st) => ({ value: st.id, label: st.name }))}
           />
         </div>
         <div className="flex flex-wrap items-center gap-3">
