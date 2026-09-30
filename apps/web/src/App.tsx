@@ -1,5 +1,6 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { ButtonStyleProvider } from "./components/Button";
 import { Spinner } from "./components/Spinner";
 import { ToastProvider } from "./components/Toast";
 import { AuthProvider, useAuth } from "./lib/auth";
@@ -56,7 +57,16 @@ export function App() {
               <Route path="/outside-window" element={<OutsideWindowPage />} />
 
               <Route element={<AdminGuard />}>
-                <Route path="/admin" element={<AdminShell />}>
+                {/* Inside the shells buttons take the app style; the login and the
+                    other standalone pages keep the classic one (Button.tsx). */}
+                <Route
+                  path="/admin"
+                  element={
+                    <ButtonStyleProvider style="app">
+                      <AdminShell />
+                    </ButtonStyleProvider>
+                  }
+                >
                   <Route index element={<DashboardPage />} />
                   <Route path="knowledge" element={<KnowledgeBasePage />} />
                   <Route path="users" element={<UsersPage />} />
@@ -69,7 +79,14 @@ export function App() {
               </Route>
 
               <Route element={<UserGuard />}>
-                <Route path="/user" element={<UserShell />}>
+                <Route
+                  path="/user"
+                  element={
+                    <ButtonStyleProvider style="app">
+                      <UserShell />
+                    </ButtonStyleProvider>
+                  }
+                >
                   <Route index element={<LandingPage />} />
                   <Route path="workspace" element={<WorkspacePage />} />
                   <Route path="queries" element={<MyQueriesPage />} />
