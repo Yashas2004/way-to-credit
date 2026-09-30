@@ -174,11 +174,16 @@ export function LoginPage() {
               className="flex items-center gap-3 px-4"
               style={{ backgroundColor: "#f1f3f5", borderRadius: 14, height: 56 }}
             >
+              {/* The placeholder isn't a label: screen readers need a real one. */}
+              <label htmlFor="login-identifier" className="sr-only">
+                User ID
+              </label>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="#11313c" aria-hidden="true">
                 <circle cx="12" cy="8" r="4" />
                 <path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z" />
               </svg>
               <input
+                id="login-identifier"
                 name="identifier"
                 placeholder="User ID"
                 autoComplete="username"
@@ -196,11 +201,15 @@ export function LoginPage() {
               className="flex items-center gap-3 px-4"
               style={{ backgroundColor: "#f1f3f5", borderRadius: 14, height: 56 }}
             >
+              <label htmlFor="login-password" className="sr-only">
+                Password
+              </label>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="#11313c" aria-hidden="true">
                 <rect x="5" y="10" width="14" height="11" rx="2" />
                 <path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="#11313c" strokeWidth="2" />
               </svg>
               <input
+                id="login-password"
                 name="password"
                 placeholder="Password"
                 type={showPassword ? "text" : "password"}
@@ -218,6 +227,8 @@ export function LoginPage() {
                 onClick={() => {
                   setShowPassword((v) => !v);
                 }}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-pressed={showPassword}
                 className="font-bold tracking-wide"
                 style={{ color: "#0a86b3", fontSize: 13 }}
               >
