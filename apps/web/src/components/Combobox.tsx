@@ -53,17 +53,22 @@ export function Combobox({
   const optionId = (index: number) => `${id}-option-${String(index)}`;
 
   const selected = options.find((o) => o.value === value);
-  const [query, setQuery] = useState(selected?.label ?? "");
+  const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const [editing, setEditing] = useState(false);
   const listRef = useRef<HTMLUListElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Outside edits (a parent clearing or changing the value) show through.
-  useEffect(() => {
-    if (!editing) setQuery(selected?.label ?? "");
-  }, [selected, editing]);
+  // While typing, the field shows what was typed; otherwise it shows the
+  // chosen option, derived on every render, so a parent clearing or changing
+  // the value shows through. This used to be an effect copying the label
+  // into `query` whenever `selected` changed, and `selected` is a new object
+  // on every parent render. Under load, a re-render just before a keystroke
+  // could leave that effect pending with a stale `editing = false`, and it
+  // then wrote the label back over what was typed (caught as the flaky
+  // Workspace "stale after a link" test). Deriving it leaves nothing to race.
+  const text = editing ? query : (selected?.label ?? "");
 
   const matches = useMemo(() => {
     const needle = editing ? normalizeForMatch(query) : "";
@@ -84,16 +89,14 @@ export function Combobox({
     setActive((current) => (current >= 0 ? current : shown.length > 0 ? 0 : -1));
   }
 
-  function close(restore = true) {
+  function close() {
     setOpen(false);
     setActive(-1);
     setEditing(false);
-    if (restore) setQuery(selected?.label ?? "");
   }
 
   function choose(option: ComboboxOption) {
     onChange(option.value);
-    setQuery(option.label);
     setOpen(false);
     setActive(-1);
     setEditing(false);
@@ -122,10 +125,9 @@ export function Combobox({
         if (open) {
           event.preventDefault();
           close();
-        } else if (value || query) {
+        } else if (value || text) {
           event.preventDefault();
           onChange("");
-          setQuery("");
         }
         break;
       case "Tab":
@@ -154,7 +156,7 @@ export function Combobox({
           aria-describedby={describedBy}
           autoComplete="off"
           spellCheck={false}
-          value={query}
+          value={text}
           placeholder={placeholder}
           disabled={disabled}
           onChange={(e) => {
