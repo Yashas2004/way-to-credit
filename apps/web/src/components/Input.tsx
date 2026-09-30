@@ -1,13 +1,16 @@
-import { forwardRef, useId, type InputHTMLAttributes } from "react";
+import { forwardRef, useId, type InputHTMLAttributes, type ReactNode } from "react";
+import { FIELD_BORDER, FIELD_BORDER_ERROR, FIELD_CLASSES } from "./fieldStyles";
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;
   error?: string;
   hint?: string;
+  /** A leading icon (decorative; the label names the field). */
+  icon?: ReactNode;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
-  { label, error, hint, id, className = "", ...rest },
+  { label, error, hint, icon, id, className = "", ...rest },
   ref,
 ) {
   const generatedId = useId();
@@ -20,14 +23,24 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
       <label htmlFor={inputId} className="text-body font-medium text-ink">
         {label}
       </label>
-      <input
-        ref={ref}
-        id={inputId}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={[hintId, errorId].filter(Boolean).join(" ") || undefined}
-        className={`rounded-sm border bg-white px-3 py-2 text-body text-ink placeholder:text-muted/60 disabled:cursor-not-allowed disabled:opacity-60 ${error ? "border-negative" : "border-muted/40"} ${className}`}
-        {...rest}
-      />
+      <div className="relative">
+        {icon && (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted"
+          >
+            {icon}
+          </span>
+        )}
+        <input
+          ref={ref}
+          id={inputId}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={[hintId, errorId].filter(Boolean).join(" ") || undefined}
+          className={`${FIELD_CLASSES} ${icon ? "pl-10" : ""} ${error ? FIELD_BORDER_ERROR : FIELD_BORDER} ${className}`}
+          {...rest}
+        />
+      </div>
       {hint && !error && (
         <p id={hintId} className="text-small text-muted">
           {hint}

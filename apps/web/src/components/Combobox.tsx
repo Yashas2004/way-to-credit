@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { normalizeForMatch } from "../lib/normalizeForMatch";
+import { FIELD_BORDER, FIELD_CLASSES } from "./fieldStyles";
 
 export interface ComboboxOption {
   value: string;
@@ -186,8 +187,9 @@ export function Combobox({
           onBlur={() => {
             close();
           }}
-          className="w-full rounded-sm border border-muted/40 bg-white px-3 py-2 pr-8 text-body text-ink placeholder:text-muted/60 disabled:cursor-not-allowed disabled:opacity-60"
+          className={`${FIELD_CLASSES} ${FIELD_BORDER} pl-10 pr-8`}
         />
+        <SearchIcon />
         <span
           aria-hidden="true"
           className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-small text-muted"
@@ -196,14 +198,14 @@ export function Combobox({
         </span>
 
         <div
-          className={`${open ? "" : "hidden"} absolute z-20 mt-1 w-full rounded-sm border border-muted/30 bg-white shadow-elevated`}
+          className={`${open ? "" : "hidden"} absolute z-20 mt-1.5 w-full overflow-hidden rounded-lg bg-white shadow-elevated`}
         >
           <ul
             ref={listRef}
             id={listId}
             role="listbox"
             aria-label={label}
-            className="max-h-72 overflow-y-auto py-1"
+            className="max-h-72 overflow-y-auto p-1.5"
           >
             {shown.map((option, index) => (
               <li
@@ -221,7 +223,7 @@ export function Combobox({
                 onMouseEnter={() => {
                   setActive(index);
                 }}
-                className={`cursor-pointer px-3 py-2 text-body ${
+                className={`cursor-pointer rounded-sm px-3 py-2 text-body ${
                   index === active ? "bg-brand/15 text-ink" : "text-ink"
                 } ${option.value === value ? "font-medium" : ""}`}
               >
@@ -262,5 +264,20 @@ function Highlighted({ label, query }: { label: string; query: string }) {
       </mark>
       {label.slice(at + needle.length)}
     </>
+  );
+}
+
+/** The leading icon: this field searches. Decorative; the label names it. */
+function SearchIcon() {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      aria-hidden="true"
+      className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+      fill="none"
+    >
+      <circle cx="9" cy="9" r="5.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="m13.2 13.2 3.3 3.3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
   );
 }

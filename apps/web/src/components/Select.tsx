@@ -1,4 +1,5 @@
 import { forwardRef, useId, type SelectHTMLAttributes } from "react";
+import { FIELD_BORDER, FIELD_BORDER_ERROR, FIELD_CLASSES } from "./fieldStyles";
 
 export interface SelectOption {
   value: string;
@@ -32,7 +33,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         id={selectId}
         aria-invalid={error ? true : undefined}
         aria-describedby={[hintId, errorId].filter(Boolean).join(" ") || undefined}
-        className={`rounded-sm border bg-white px-3 py-2 text-body text-ink disabled:cursor-not-allowed disabled:opacity-60 ${error ? "border-negative" : "border-muted/40"} ${className}`}
+        className={`${FIELD_CLASSES} ${error ? FIELD_BORDER_ERROR : FIELD_BORDER} ${className}`}
         {...rest}
       >
         {placeholder && (

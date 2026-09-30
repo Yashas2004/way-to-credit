@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { FIELD_BORDER, FIELD_CLASSES } from "./fieldStyles";
 import { Button } from "./Button";
 
 export interface EditableCellProps {
@@ -171,7 +172,7 @@ export const EditableCell = forwardRef<HTMLButtonElement, EditableCellProps>(fun
         maxLength={5000}
         disabled={saving}
         aria-label="Description"
-        className="w-full resize-y rounded-sm border border-muted/40 bg-white px-2 py-1.5 text-body text-ink disabled:cursor-not-allowed disabled:opacity-60"
+        className={`resize-y ${FIELD_CLASSES} ${FIELD_BORDER} px-2 py-1.5`}
       />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">

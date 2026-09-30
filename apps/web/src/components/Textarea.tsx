@@ -1,4 +1,5 @@
 import { forwardRef, useId, type TextareaHTMLAttributes } from "react";
+import { FIELD_BORDER, FIELD_BORDER_ERROR, FIELD_CLASSES } from "./fieldStyles";
 
 export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   label: string;
@@ -26,7 +27,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
         rows={rows}
         aria-invalid={error ? true : undefined}
         aria-describedby={[hintId, errorId].filter(Boolean).join(" ") || undefined}
-        className={`resize-y rounded-sm border bg-white px-3 py-2 text-body text-ink placeholder:text-muted/60 disabled:cursor-not-allowed disabled:opacity-60 ${error ? "border-negative" : "border-muted/40"} ${className}`}
+        className={`resize-y ${FIELD_CLASSES} ${error ? FIELD_BORDER_ERROR : FIELD_BORDER} ${className}`}
         {...rest}
       />
       {hint && !error && (
