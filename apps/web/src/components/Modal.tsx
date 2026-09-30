@@ -41,7 +41,7 @@ export function Modal({ isOpen, onClose, title, children, size = "md" }: ModalPr
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className={`relative z-10 max-h-[85vh] w-full overflow-y-auto rounded-md bg-white p-6 shadow-elevated ${SIZE_CLASSES[size]}`}
+        className={`relative z-10 max-h-[85vh] w-full overflow-y-auto rounded-lg bg-white p-6 shadow-elevated ${SIZE_CLASSES[size]}`}
       >
         <h2 id={titleId} className="mb-4 pr-10 font-serif text-h2 text-ink">
           {title}

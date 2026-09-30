@@ -98,8 +98,12 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
           end={item.end}
           onClick={onNavigate}
           className={({ isActive }) =>
-            `flex items-center gap-2.5 rounded-sm px-2.5 py-2 text-body ${
-              isActive ? "bg-canvas/10 font-medium" : "text-canvas/80 hover:bg-canvas/5"
+            // The active item gets the cyan gradient as a thin marker on its
+            // left edge: a small accent, on `deep` where cyan passes (4.59:1).
+            `relative flex items-center gap-2.5 rounded-control px-2.5 py-2 text-body ${
+              isActive
+                ? "bg-canvas/10 font-semibold before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-brand-gradient"
+                : "text-canvas/80 hover:bg-canvas/5"
             }`
           }
         >
