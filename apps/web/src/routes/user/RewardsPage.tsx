@@ -36,11 +36,14 @@ export function RewardsPage() {
     );
   }
 
+  // The certificate keeps its pre-redesign type and radii (index.css).
   return (
-    <RewardsCertificate
-      displayName={identity?.displayName ?? "Your"}
-      creditPoints={query.data.creditPoints}
-      milestones={query.data.milestones}
-    />
+    <div className="certificate-classic">
+      <RewardsCertificate
+        displayName={identity?.displayName ?? "Your"}
+        creditPoints={query.data.creditPoints}
+        milestones={query.data.milestones}
+      />
+    </div>
   );
 }

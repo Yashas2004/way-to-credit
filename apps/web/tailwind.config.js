@@ -46,6 +46,14 @@ export default {
       //    indicator (4.59:1).
       // What cyan means: yours, live, earned. One primary action per screen.
       brand: "#00A2D0",
+      // The light end of the brand gradient (the login's own tint, same hue).
+      // Only ever a gradient stop, never text: ink on it is 7.1:1, so a
+      // gradient fill from here to `brand` still takes ink text.
+      "brand-light": "#22B8EA",
+      // Filled input background. Set per surface in index.css: white on the
+      // canvas, canvas inside a white card, so a field always reads as a
+      // soft well on whatever it sits on.
+      field: "var(--field)",
       // Cyan for text and thin elements on light surfaces. 4.67:1 on canvas,
       // 5.35:1 on white.
       "brand-ink": "#007494",
@@ -60,7 +68,13 @@ export default {
       negative: "#AE392D",
     },
     fontFamily: {
-      sans: ['"IBM Plex Sans"', "system-ui", "sans-serif"],
+      // UI text. Measured against IBM Plex Sans at the same size: x-height
+      // +4%, cap height +7%, text sets ~5% wider. Sizes unchanged: it reads a
+      // touch larger, and wraps ~5% sooner.
+      // "Jakarta UI" is Plus Jakarta Sans bundled under its own family name
+      // (index.css), so it never collides with the login's Google-hosted copy.
+      sans: ['"Jakarta UI"', "system-ui", "sans-serif"],
+      // Display headings and the rewards certificate: the serif contrast.
       serif: ['"IBM Plex Serif"', "Georgia", "serif"],
     },
     // Two densities, one scale: each token reads CSS variables set in
@@ -76,28 +90,43 @@ export default {
       h1: ["var(--fs-h1)", { lineHeight: "var(--lh-h1)" }],
       display: ["var(--fs-display)", { lineHeight: "var(--lh-display)" }],
     },
+    // Hierarchy-coded: the larger and more container-like the element, the
+    // rounder. Controls and cards follow the density (index.css) so a 36px
+    // admin input isn't pill-shaped and a 48px user field isn't sharp.
     borderRadius: {
       none: "0px",
-      // Small interactive elements â€” inputs, buttons, square badges. Crisp,
-      // form-like, not the soft-everywhere look this app is deliberately avoiding.
-      sm: "4px",
-      // True containers â€” modals, panels.
-      md: "8px",
-      // Status pills/tags only â€” a pill shape conventionally signals
-      // "tag/state," so it's reserved for exactly that, not used generally.
+      // Small inline things: square badges, chips, row hover highlights,
+      // checkboxes, the highlighted match in a combobox.
+      sm: "var(--radius-sm)",
+      // Inputs, selects, buttons: 12px comfortable, 8px compact.
+      control: "var(--radius-control)",
+      // Cards, panels, table and list containers: 16px comfortable, 12px compact.
+      md: "var(--radius-card)",
+      // Things that float or stand alone: modals, dropdown menus.
+      lg: "20px",
+      // Status pills/tags only: a pill shape signals "tag/state".
       full: "9999px",
     },
     boxShadow: {
       none: "none",
-      // The ONE shadow token in the app, reserved for things that actually
-      // float above the page (modals, dropdowns, toasts, the mobile drawer).
-      // No default "card" shadow exists â€” content sections sit directly on
-      // canvas with hairline dividers, not shadowed white cards.
+      // Raised cards: content that sits on the canvas as a white surface
+      // (lists, tables, panels, the login card). Soft and short, tinted with
+      // ink rather than black so it reads as the same material.
+      card: "0 1px 2px rgba(18, 34, 38, 0.05), 0 6px 20px -6px rgba(18, 34, 38, 0.14)",
+      // Things that actually float above the page: modals, dropdowns,
+      // toasts, the mobile drawer.
       elevated: "0 8px 24px -4px rgba(18, 34, 38, 0.18)",
     },
     extend: {
       spacing: {
         18: "4.5rem",
+      },
+      backgroundImage: {
+        // The cyan accent: small surfaces only (an active marker, a header
+        // edge). Never a primary action (those are solid cyan, like the
+        // login's) and never a large field on a content screen. Both stops
+        // take ink text (7.1:1 and 5.52:1).
+        "brand-gradient": "linear-gradient(135deg, #22B8EA 0%, #00A2D0 100%)",
       },
     },
   },
