@@ -15,5 +15,6 @@ export default defineConfig({
     // ignored rather than investigated.
     testTimeout: 15_000,
     globalSetup: ["./src/testGlobalSetup.ts"],
+    setupFiles: ["./src/testSetup.ts"],
   },
 });

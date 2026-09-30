@@ -2,7 +2,7 @@ import { createApp } from "./app.js";
 import { env } from "./config/env.js";
 import { closeDb, effectiveStatementTimeoutMs } from "./lib/db.js";
 import { logger } from "./lib/logger.js";
-import { closeRedis } from "./lib/redis.js";
+import { closeRedis, connectRedis } from "./lib/redis.js";
 import { startSessionRetentionSchedule } from "./modules/auth/sessionRetention.service.js";
 
 const SHUTDOWN_TIMEOUT_MS = 10_000;
@@ -24,6 +24,10 @@ if (env.NODE_ENV === "development" && env.FAKE_NOW) {
   logger.warn("# This must NEVER be set outside local development.");
   logger.warn("################################################################");
 }
+
+// Commands never queue for a connection (lib/redis.ts), so open it now.
+// Never awaited: an unreachable Redis must not delay or block startup.
+void connectRedis();
 
 const server = app.listen(env.PORT, () => {
   logger.info(`API listening on port ${String(env.PORT)}`);

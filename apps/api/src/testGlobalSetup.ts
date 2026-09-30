@@ -8,6 +8,8 @@ import { redis } from "./lib/redis.js";
  */
 export default async function setup(): Promise<void> {
   try {
+    // Commands don't queue for a connection (lib/redis.ts): open it first.
+    await redis.connect();
     const keys = [...(await redis.keys("login:*")), ...(await redis.keys("nav:*"))];
     if (keys.length > 0) {
       await redis.del(...keys);
