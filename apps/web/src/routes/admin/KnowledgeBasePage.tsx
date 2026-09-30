@@ -1,7 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { DescriptionGridResponse, DescriptionGridRow } from "@way-to-credit/shared";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Badge } from "../../components/Badge";
 import { Button } from "../../components/Button";
 import { EditableCell } from "../../components/EditableCell";
 import { EmptyState } from "../../components/EmptyState";
@@ -366,9 +365,15 @@ function KnowledgeBaseRow({
   return (
     <TableRow>
       <TableCell className="align-top">
-        <div className="flex flex-col gap-1">
+        {/* The lifecycle position as plain text, not a pill: in this narrow
+            column the "Lifecycle position (n of 50)" pill wrapped onto two
+            lines once the UI font set ~5% wider, which broke the pill and
+            cost a row per screen. */}
+        <div className="flex flex-col gap-0.5">
           <span className="text-body font-medium text-ink">{row.statusName}</span>
-          <Badge tone="neutral" label="Lifecycle position" position={{ index: index + 1, total }} />
+          <span className="text-small text-muted">
+            Step {index + 1} of {total}
+          </span>
         </div>
       </TableCell>
       <TableCell className="align-top">
