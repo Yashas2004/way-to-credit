@@ -24,7 +24,9 @@ import {
 } from "../../lib/adminApi";
 import { formatIstDateTime } from "../../lib/format";
 import { formatIstDateStamp } from "../../lib/ist";
+import { useAuth } from "../../lib/auth";
 import { CatalogDrawer } from "./CatalogDrawer";
+import { CoverageList } from "./CoverageList";
 
 const NA_BODY = "NA";
 
@@ -56,6 +58,27 @@ export function KnowledgeBasePage() {
     queryFn: () => fetchDescriptionGrid(bankId, loanTypeId),
     enabled: allSelected,
   });
+
+  // The pair this admin last opened, remembered in this browser (ids only;
+  // names come from the bank list and that bank's loan types).
+  const { identity } = useAuth();
+  const lastPairKey = identity ? `wtc.kb.lastPair.v1.${identity.id}` : null;
+  const [storedPair] = useState(() => (lastPairKey ? readLastPair(lastPairKey) : null));
+  useEffect(() => {
+    if (lastPairKey && bankId && loanTypeId) writeLastPair(lastPairKey, { bankId, loanTypeId });
+  }, [lastPairKey, bankId, loanTypeId]);
+  const lastPairLoanTypes = useQuery({
+    queryKey: ["admin", "loanTypesForBank", storedPair?.bankId ?? ""],
+    queryFn: () => fetchLoanTypesForBank(storedPair?.bankId ?? ""),
+    enabled: Boolean(storedPair),
+  });
+  const lastPairBank = banksQuery.data?.find((b) => b.id === storedPair?.bankId);
+  const lastPairLoanType = lastPairLoanTypes.data?.find((lt) => lt.id === storedPair?.loanTypeId);
+  const lastPair =
+    storedPair && lastPairBank && lastPairLoanType
+      ? { ...storedPair, label: `${lastPairBank.name} · ${lastPairLoanType.name}` }
+      : null;
+  const selectedBankName = banksQuery.data?.find((b) => b.id === bankId)?.name;
 
   function handleBankChange(value: string) {
     setBankId(value);
@@ -103,6 +126,7 @@ export function KnowledgeBasePage() {
               }
             : old,
       );
+      void queryClient.invalidateQueries({ queryKey: ["admin", "descriptionCoverage"] });
       showToast("Description saved.", "success");
     },
     [bankId, loanTypeId, queryClient, showToast],
@@ -209,6 +233,35 @@ export function KnowledgeBasePage() {
           options={loanTypes.map((lt) => ({ value: lt.id, label: lt.name }))}
         />
       </div>
+
+      {/* Before a pair is open: where to start. The last pair this admin worked
+          on, then the pairs with the most missing descriptions (or, with a bank
+          chosen, its loan types), each one click from opening. */}
+      {!allSelected && (
+        <div className="flex flex-col gap-6">
+          {lastPair && (
+            <div>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setBankId(lastPair.bankId);
+                  setLoanTypeId(lastPair.loanTypeId);
+                }}
+              >
+                Reopen {lastPair.label}
+              </Button>
+            </div>
+          )}
+          <CoverageList
+            {...(bankId ? { bankId } : {})}
+            {...(selectedBankName ? { bankName: selectedBankName } : {})}
+            onPick={(pickedBank, pickedLoanType) => {
+              setBankId(pickedBank);
+              setLoanTypeId(pickedLoanType);
+            }}
+          />
+        </div>
+      )}
 
       {allSelected && gridQuery.isPending && (
         <div className="flex justify-center py-12">
@@ -395,4 +448,30 @@ function KnowledgeBaseRow({
       </TableCell>
     </TableRow>
   );
+}
+
+interface StoredPair {
+  bankId: string;
+  loanTypeId: string;
+}
+
+function readLastPair(key: string): StoredPair | null {
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as Partial<StoredPair>;
+    return typeof v.bankId === "string" && typeof v.loanTypeId === "string"
+      ? { bankId: v.bankId, loanTypeId: v.loanTypeId }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeLastPair(key: string, pair: StoredPair): void {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(pair));
+  } catch {
+    // Storage blocked or full: it just isn't remembered.
+  }
 }

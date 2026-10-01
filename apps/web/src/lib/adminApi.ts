@@ -21,6 +21,7 @@ import type {
   StatsResponse,
   UpdateMilestoneRequest,
   UpsertDescriptionRequest,
+  DescriptionCoverageResponse,
 } from "@way-to-credit/shared";
 import { apiDelete, apiGet, apiPatch, apiPost, apiRequest } from "./api";
 
@@ -102,6 +103,20 @@ export function undeleteStatus(id: string): Promise<Status> {
 }
 
 // --- Descriptions ------------------------------------------------------------
+
+/** Pairs ranked by missing descriptions; optionally one bank's loan types only. */
+export function fetchDescriptionCoverage(params: {
+  bankId?: string;
+  limit?: number;
+}): Promise<DescriptionCoverageResponse> {
+  const search = new URLSearchParams();
+  if (params.bankId) search.set("bankId", params.bankId);
+  if (params.limit) search.set("limit", String(params.limit));
+  const qs = search.toString();
+  return apiGet<DescriptionCoverageResponse>(
+    `/api/admin/descriptions/coverage${qs ? `?${qs}` : ""}`,
+  );
+}
 
 export function fetchDescriptionGrid(
   bankId: string,
