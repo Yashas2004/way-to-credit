@@ -6,7 +6,9 @@ import { Card } from "../../components/Card";
 import { Combobox } from "../../components/Combobox";
 import { EmptyState } from "../../components/EmptyState";
 import { ErrorState } from "../../components/ErrorState";
+import { CreditProgress } from "../../components/CreditProgress";
 import { RecentLookups } from "../../components/RecentLookups";
+import { YourQueries } from "../../components/YourQueries";
 import { SequenceDots } from "../../components/SequenceDots";
 import { Spinner } from "../../components/Spinner";
 import { ApiError } from "../../lib/api";
@@ -274,7 +276,7 @@ export function WorkspacePage() {
       </form>
 
       {submitted ? (
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-12 xl:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className={RESULT_GRID}>
           <Card>
             {stale && (
               <p
@@ -356,10 +358,22 @@ export function WorkspacePage() {
                 </div>
               ))}
           </Card>
-          <RecentLookups items={recentItems} />
+          <div className="flex flex-col gap-8">
+            <RecentLookups items={recentItems} />
+            <CreditProgress />
+          </div>
         </div>
       ) : (
-        <RecentLookups items={recentItems} className="max-w-2xl" />
+        // Before a lookup: where you left off, your progress, and your queries
+        // worth looking at again. Each section is drawn only when it has
+        // something; a brand-new user sees just their progress.
+        <div className={RESULT_GRID}>
+          <RecentLookups items={recentItems} />
+          <div className="flex flex-col gap-8">
+            <CreditProgress />
+            <YourQueries nav={nav} />
+          </div>
+        </div>
       )}
 
       {raiseQueryContext && (
@@ -395,3 +409,7 @@ function QueryHelperLine() {
 function plural(count: number, one: string, many = `${one}s`): string {
   return `${String(count)} ${count === 1 ? one : many}`;
 }
+
+/** Main column and a rail, from `lg` up. */
+const RESULT_GRID =
+  "grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-12 xl:grid-cols-[minmax(0,1fr)_20rem]";

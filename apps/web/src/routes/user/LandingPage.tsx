@@ -1,11 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import type { IssueSummary, QueryRow, RewardsMapResponse } from "@way-to-credit/shared";
-import { useId, type ReactNode } from "react";
+import type { IssueSummary, QueryRow } from "@way-to-credit/shared";
 import { Link } from "react-router-dom";
 import { Button } from "../../components/Button";
+import { CreditProgress } from "../../components/CreditProgress";
+import { LoadFailed, RailSection, type LoadState } from "../../components/RailSection";
 import { RecentLookups } from "../../components/RecentLookups";
-import { SequenceDots } from "../../components/SequenceDots";
-import { Spinner } from "../../components/Spinner";
 import { useAuth } from "../../lib/auth";
 import { formatRelativeTime } from "../../lib/format";
 import { resolveRecentLookups, useRecentLookups } from "../../lib/recentLookups";
@@ -13,7 +12,6 @@ import {
   fetchIssueUnreadCount,
   fetchOwnIssues,
   fetchOwnQueries,
-  fetchRewardsMap,
   fetchWorkspaceNav,
 } from "../../lib/userApi";
 
@@ -60,7 +58,6 @@ export function LandingPage() {
     queryKey: ["user", "queries", "landing"],
     queryFn: () => fetchOwnQueries({ limit: LATEST_QUERIES }),
   });
-  const rewardsQuery = useQuery({ queryKey: ["user", "rewards"], queryFn: fetchRewardsMap });
 
   const unreadIssues = (issuesQuery.data?.items ?? []).filter((issue) => issue.unread);
   const pending = (queriesQuery.data?.items ?? []).filter((q) => q.status === "pending");
@@ -91,7 +88,7 @@ export function LandingPage() {
 
         <div className="flex flex-col gap-8">
           <RepliesSection query={issuesQuery} items={unreadIssues} />
-          <ProgressSection query={rewardsQuery} />
+          <CreditProgress />
           <PendingSection query={queriesQuery} items={pending} />
         </div>
       </div>
@@ -121,61 +118,17 @@ function stateSentence(
   return parts.length > 0 ? parts.join(" ") : null;
 }
 
-interface LoadState {
-  isPending: boolean;
-  isError: boolean;
-  refetch: () => unknown;
-}
-
-function Section({
-  title,
-  action,
-  children,
-}: {
-  title: string;
-  action?: ReactNode;
-  children: ReactNode;
-}) {
-  const headingId = useId();
-  return (
-    <section aria-labelledby={headingId}>
-      <div className="mb-2 flex items-baseline justify-between gap-4">
-        <h2 id={headingId} className="text-h3 font-medium text-muted">
-          {title}
-        </h2>
-        {action}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function LoadFailed({ what, query }: { what: string; query: LoadState }) {
-  return (
-    <p className="text-small text-muted">
-      Couldn't load {what}.{" "}
-      <button
-        type="button"
-        className="text-brand-ink underline"
-        onClick={() => void query.refetch()}
-      >
-        Retry
-      </button>
-    </p>
-  );
-}
-
 function RepliesSection({ query, items }: { query: LoadState; items: IssueSummary[] }) {
   if (query.isError) {
     return (
-      <Section title="Replies for you">
+      <RailSection title="Replies for you">
         <LoadFailed what="your help requests" query={query} />
-      </Section>
+      </RailSection>
     );
   }
   if (items.length === 0) return null;
   return (
-    <Section
+    <RailSection
       title="Replies for you"
       action={
         <Link to="/user/help" className="text-small text-brand-ink underline">
@@ -195,81 +148,21 @@ function RepliesSection({ query, items }: { query: LoadState; items: IssueSummar
           </li>
         ))}
       </ul>
-    </Section>
-  );
-}
-
-function ProgressSection({
-  query,
-}: {
-  query: LoadState & { data?: RewardsMapResponse | undefined };
-}) {
-  const action = (
-    <Link to="/user/rewards" className="text-small text-brand-ink underline">
-      Rewards map
-    </Link>
-  );
-  if (query.isPending) {
-    return (
-      <Section title="Your progress">
-        <Spinner label="Loading your credit total" />
-      </Section>
-    );
-  }
-  if (query.isError || !query.data) {
-    return (
-      <Section title="Your progress">
-        <LoadFailed what="your credit total" query={query} />
-      </Section>
-    );
-  }
-  const { creditPoints, milestones } = query.data;
-  const sorted = [...milestones].sort((a, b) => a.pointsRequired - b.pointsRequired);
-  const next = sorted.find((m) => !m.unlockedAt);
-  // The step runs from the last milestone reached to the next one.
-  const from = Math.max(
-    0,
-    ...sorted
-      .filter((m) => m.unlockedAt && m.pointsRequired <= creditPoints)
-      .map((m) => m.pointsRequired),
-  );
-
-  return (
-    <Section title="Your progress" action={action}>
-      <p className="flex items-baseline gap-2">
-        <span className="font-serif text-display text-brand-ink">{creditPoints}</span>
-        <span className="text-body text-muted">credit point{creditPoints === 1 ? "" : "s"}</span>
-      </p>
-      {next ? (
-        <SequenceDots
-          className="mt-2"
-          value={creditPoints - from}
-          total={next.pointsRequired - from}
-          label={`${String(Math.min(creditPoints, next.pointsRequired) - from)} of ${String(next.pointsRequired - from)} toward ${next.title}`}
-        />
-      ) : (
-        <p className="mt-2 text-small text-muted">
-          {sorted.length > 0 ? "Every milestone unlocked." : "No milestones set up yet."}
-        </p>
-      )}
-      {creditPoints === 0 && (
-        <p className="mt-2 text-small text-muted">Each query an admin approves earns 1 point.</p>
-      )}
-    </Section>
+    </RailSection>
   );
 }
 
 function PendingSection({ query, items }: { query: LoadState; items: QueryRow[] }) {
   if (query.isError) {
     return (
-      <Section title="Awaiting review">
+      <RailSection title="Awaiting review">
         <LoadFailed what="your queries" query={query} />
-      </Section>
+      </RailSection>
     );
   }
   if (items.length === 0) return null;
   return (
-    <Section
+    <RailSection
       title="Awaiting review"
       action={
         <Link to="/user/queries" className="text-small text-brand-ink underline">
@@ -290,6 +183,6 @@ function PendingSection({ query, items }: { query: LoadState; items: QueryRow[] 
           </li>
         ))}
       </ul>
-    </Section>
+    </RailSection>
   );
 }
