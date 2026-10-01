@@ -62,7 +62,7 @@ describe("MyQueriesPage", () => {
     expect(screen.getByText("HDFC Bank · Home Loan")).toBeInTheDocument();
     expect(screen.getByText("Approved")).toBeInTheDocument();
     expect(screen.getByText("+1 credit")).toBeInTheDocument();
-    expect(screen.getByText("29 Sept 2026")).toBeInTheDocument(); // 05:22Z = 10:52 IST
+    expect(screen.getByText(/29 Sept 2026, 10:52 am IST/)).toBeInTheDocument(); // 05:22Z = 10:52 IST
     expect(screen.getByText(/10:52 am IST/)).toBeInTheDocument();
     expect(
       await screen.findByRole("link", { name: "Look up Sanctioned at HDFC Bank, Home Loan" }),

@@ -97,39 +97,45 @@ export function MyQueriesPage() {
           {items.map((item) => (
             <li
               key={item.id}
-              className="flex flex-col gap-3 px-4 py-4 md:grid md:grid-cols-[minmax(0,1fr)_10rem_9rem] md:gap-6"
+              className="flex flex-col gap-2 px-4 py-3 md:grid md:grid-cols-[minmax(0,1fr)_10rem_12rem] md:items-start md:gap-6"
             >
+              {/* The status and its combination on one line, then the message:
+                  two lines of text before the message instead of three, and
+                  "Look up" sits under the date rather than on a line of its own. */}
               <div className="min-w-0">
-                <p className="text-small text-muted">
-                  {item.bankNameSnapshot} · {item.loanTypeNameSnapshot}
+                <p className="flex flex-wrap items-baseline gap-x-1.5">
+                  <span className="text-body font-medium text-ink">{item.statusNameSnapshot}</span>
+                  <span aria-hidden="true" className="text-small text-muted">
+                    ·
+                  </span>
+                  <span className="text-small text-muted">
+                    {item.bankNameSnapshot} · {item.loanTypeNameSnapshot}
+                  </span>
                 </p>
-                <p className="text-body font-medium text-ink">{item.statusNameSnapshot}</p>
-                <p className="mt-1.5 max-w-[66ch] text-body text-ink">{item.message}</p>
+                <p className="mt-1 max-w-[66ch] text-body text-ink">{item.message}</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge tone={STATUS_TONE[item.status]} label={STATUS_LABEL[item.status]} />
+                {item.status === "approved" && (
+                  <span className="text-small font-medium text-positive">+1 credit</span>
+                )}
+              </div>
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 text-small text-muted md:block md:text-right">
+                {/* Never wraps: in a 9rem column "2:33 pm IST" broke across lines. */}
+                <p className="whitespace-nowrap">
+                  <span className="sr-only">Raised </span>
+                  {dayFormatter.format(new Date(item.raisedAt))},{" "}
+                  {timeFormatter.format(new Date(item.raisedAt))} IST
+                </p>
                 {nav && isAvailable(nav, item) && (
                   <Link
                     to={workspaceHref(item)}
-                    className="mt-1.5 inline-block text-small text-brand-ink underline"
+                    className="text-brand-ink underline"
                     aria-label={`Look up ${item.statusNameSnapshot} at ${item.bankNameSnapshot}, ${item.loanTypeNameSnapshot}`}
                   >
                     Look up
                   </Link>
                 )}
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-2 md:contents">
-                <div className="flex flex-wrap items-center gap-2 md:flex-col md:items-start md:gap-1">
-                  <Badge tone={STATUS_TONE[item.status]} label={STATUS_LABEL[item.status]} />
-                  {item.status === "approved" && (
-                    <span className="text-small font-medium text-positive">+1 credit</span>
-                  )}
-                </div>
-                <p className="text-small text-muted md:text-right">
-                  <span className="sr-only">Raised </span>
-                  {dayFormatter.format(new Date(item.raisedAt))}
-                  <span className="md:block">
-                    <span className="md:hidden">, </span>
-                    {timeFormatter.format(new Date(item.raisedAt))} IST
-                  </span>
-                </p>
               </div>
             </li>
           ))}
