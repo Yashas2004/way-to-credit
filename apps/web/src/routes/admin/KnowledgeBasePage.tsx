@@ -1,6 +1,11 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { DescriptionGridResponse, DescriptionGridRow } from "@way-to-credit/shared";
+import type {
+  AdminQueryRow,
+  DescriptionGridResponse,
+  DescriptionGridRow,
+} from "@way-to-credit/shared";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "../../components/Button";
 import { EditableCell } from "../../components/EditableCell";
 import { EmptyState } from "../../components/EmptyState";
@@ -17,18 +22,20 @@ import {
 } from "../../components/Table";
 import { useToast } from "../../components/Toast";
 import {
+  fetchAdminQueries,
   fetchBanks,
   fetchLoanTypesForBank,
   fetchDescriptionGrid,
   upsertDescription,
 } from "../../lib/adminApi";
-import { formatIstDateTime } from "../../lib/format";
+import { formatIstDateTime, formatRelativeTime } from "../../lib/format";
 import { formatIstDateStamp } from "../../lib/ist";
 import { useAuth } from "../../lib/auth";
 import { CatalogDrawer } from "./CatalogDrawer";
 import { CoverageList } from "./CoverageList";
 
 const NA_BODY = "NA";
+const PENDING_PAGE = 50;
 
 export function KnowledgeBasePage() {
   const { showToast } = useToast();
@@ -53,6 +60,15 @@ export function KnowledgeBasePage() {
   });
 
   const allSelected = Boolean(bankId && loanTypeId);
+  // Pending queries, so each status shows what users have said about it next
+  // to the text being fixed. One page of 50 (the oldest first), filtered to
+  // this pair here. There's no server filter by pair, so with more pending
+  // than that, the counts say "at least".
+  const pendingQuery = useQuery({
+    queryKey: ["admin", "queries", "pending-for-kb"],
+    queryFn: () => fetchAdminQueries({ status: "pending", sort: "asc", limit: PENDING_PAGE }),
+    enabled: allSelected,
+  });
   const gridQuery = useQuery({
     queryKey: ["admin", "descriptionGrid", bankId, loanTypeId],
     queryFn: () => fetchDescriptionGrid(bankId, loanTypeId),
@@ -138,11 +154,24 @@ export function KnowledgeBasePage() {
     else cellRefs.current.delete(statusId);
   }, []);
 
+  const pendingByStatus = useMemo(() => {
+    const map = new Map<string, AdminQueryRow[]>();
+    for (const q of pendingQuery.data?.items ?? []) {
+      if (q.bankId !== bankId || q.loanTypeId !== loanTypeId) continue;
+      map.set(q.statusId, [...(map.get(q.statusId) ?? []), q]);
+    }
+    return map;
+  }, [pendingQuery.data, bankId, loanTypeId]);
+  const pendingCapped = pendingQuery.data?.nextCursor != null;
+
   const allRows = useMemo(
     () => [...(gridQuery.data?.rows ?? [])].sort((a, b) => a.sortOrder - b.sortOrder),
     [gridQuery.data],
   );
   const naCount = allRows.filter((r) => r.body === NA_BODY).length;
+  // Lifecycle position comes from the full ordered list, not the visible one:
+  // with "Show only NA" on, the row index is its place among the NA rows.
+  const stepOf = useMemo(() => new Map(allRows.map((r, i) => [r.statusId, i + 1])), [allRows]);
   const visibleRows = showOnlyNA ? allRows.filter((r) => r.body === NA_BODY) : allRows;
   const order = useMemo(() => visibleRows.map((r) => r.statusId), [visibleRows]);
   const orderRef = useRef<string[]>([]);
@@ -331,9 +360,8 @@ export function KnowledgeBasePage() {
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableHeaderCell className="w-56">Status</TableHeaderCell>
+                  <TableHeaderCell className="w-60">Status</TableHeaderCell>
                   <TableHeaderCell>Description</TableHeaderCell>
-                  <TableHeaderCell className="w-44">Last updated</TableHeaderCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -342,7 +370,10 @@ export function KnowledgeBasePage() {
                     key={row.statusId}
                     row={row}
                     index={index}
-                    total={visibleRows.length}
+                    step={stepOf.get(row.statusId) ?? index + 1}
+                    lifecycleTotal={allRows.length}
+                    pending={pendingByStatus.get(row.statusId) ?? []}
+                    pendingCapped={pendingCapped}
                     disabled={!gridQuery.data.wired}
                     onSave={handleSaveDescription}
                     onNavigate={handleNavigate}
@@ -370,8 +401,13 @@ export function KnowledgeBasePage() {
 
 interface KnowledgeBaseRowProps {
   row: DescriptionGridRow;
+  /** Position in the visible list, for keyboard navigation between rows. */
   index: number;
-  total: number;
+  /** Position in the lifecycle (1-based), whatever the filter. */
+  step: number;
+  lifecycleTotal: number;
+  pending: AdminQueryRow[];
+  pendingCapped: boolean;
   disabled: boolean;
   onSave: (statusId: string, body: string) => Promise<void>;
   onNavigate: (index: number, direction: "up" | "down") => void;
@@ -383,7 +419,10 @@ interface KnowledgeBaseRowProps {
 function KnowledgeBaseRow({
   row,
   index,
-  total,
+  step,
+  lifecycleTotal,
+  pending,
+  pendingCapped,
   disabled,
   onSave,
   onNavigate,
@@ -417,18 +456,41 @@ function KnowledgeBaseRow({
     [registerRef, row.statusId],
   );
 
+  const [showPending, setShowPending] = useState(false);
+  const pendingLabel = `${pendingCapped ? "At least " : ""}${String(pending.length)} pending ${
+    pending.length === 1 ? "query" : "queries"
+  }`;
+
   return (
     <TableRow>
       <TableCell className="align-top">
-        {/* The lifecycle position as plain text, not a pill: in this narrow
-            column the "Lifecycle position (n of 50)" pill wrapped onto two
-            lines once the UI font set ~5% wider, which broke the pill and
-            cost a row per screen. */}
+        {/* Plain text, not a pill: in this narrow column the "Lifecycle
+            position (n of 50)" pill wrapped onto two lines once the UI font
+            set ~5% wider. "Last updated" lives here now too, giving its
+            column to the description. */}
         <div className="flex flex-col gap-0.5">
           <span className="text-body font-medium text-ink">{row.statusName}</span>
           <span className="text-small text-muted">
-            Step {index + 1} of {total}
+            Step {step} of {lifecycleTotal}
+            {row.updatedAt && (
+              <span title={`${formatIstDateTime(row.updatedAt)} IST`}>
+                {" "}
+                · updated {formatRelativeTime(row.updatedAt)}
+              </span>
+            )}
           </span>
+          {pending.length > 0 && (
+            <button
+              type="button"
+              aria-expanded={showPending}
+              onClick={() => {
+                setShowPending((v) => !v);
+              }}
+              className="self-start text-small font-medium text-attention underline"
+            >
+              {pendingLabel}
+            </button>
+          )}
         </div>
       </TableCell>
       <TableCell className="align-top">
@@ -442,9 +504,21 @@ function KnowledgeBaseRow({
           onSavedAdvance={handleSavedAdvance}
           onUnsavedChange={handleUnsavedChange}
         />
-      </TableCell>
-      <TableCell className="align-top text-small text-muted">
-        {row.updatedAt ? formatIstDateTime(row.updatedAt) : "—"}
+        {showPending && (
+          <ul className="mt-2 flex flex-col gap-1.5 rounded-sm bg-attention/10 px-3 py-2">
+            {pending.map((q) => (
+              <li key={q.id} className="text-small text-ink">
+                &ldquo;{q.message}&rdquo;
+                <span className="text-muted"> · raised {formatRelativeTime(q.raisedAt)}</span>
+              </li>
+            ))}
+            <li className="text-small">
+              <Link to="/admin/queries" className="text-brand-ink underline">
+                Approve or reject in the Query inbox
+              </Link>
+            </li>
+          </ul>
+        )}
       </TableCell>
     </TableRow>
   );

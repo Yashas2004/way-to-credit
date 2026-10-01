@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../components/Toast";
 import { ApiError } from "../../lib/api";
@@ -19,6 +20,7 @@ vi.mock("../../lib/adminApi", async () => {
     fetchLoanTypesForBank: vi.fn(),
     fetchDescriptionGrid: vi.fn(),
     fetchDescriptionCoverage: vi.fn(),
+    fetchAdminQueries: vi.fn(),
     upsertDescription: vi.fn(),
     fetchLoanTypes: vi.fn(),
     createBank: vi.fn(),
@@ -41,6 +43,7 @@ vi.mock("../../lib/adminApi", async () => {
 
 import {
   deleteBank,
+  fetchAdminQueries,
   fetchBanks,
   fetchDescriptionCoverage,
   fetchDescriptionGrid,
@@ -57,6 +60,7 @@ const mockFetchDescriptionGrid = vi.mocked(fetchDescriptionGrid);
 const mockUpsertDescription = vi.mocked(upsertDescription);
 const mockDeleteBank = vi.mocked(deleteBank);
 const mockFetchCoverage = vi.mocked(fetchDescriptionCoverage);
+const mockFetchAdminQueries = vi.mocked(fetchAdminQueries);
 const NO_COVERAGE = { totalStatuses: 0, pairCount: 0, missingTotal: 0, pairs: [] };
 
 const BANK = {
@@ -86,9 +90,11 @@ function renderPage(staleTime = 0) {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <ToastProvider>
-        <KnowledgeBasePage />
-      </ToastProvider>
+      <MemoryRouter>
+        <ToastProvider>
+          <KnowledgeBasePage />
+        </ToastProvider>
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -97,6 +103,7 @@ describe("KnowledgeBasePage", () => {
   beforeEach(() => {
     window.localStorage.clear();
     mockFetchCoverage.mockResolvedValue(NO_COVERAGE);
+    mockFetchAdminQueries.mockResolvedValue({ items: [], nextCursor: null });
   });
   afterEach(() => {
     mockFetchBanks.mockReset();
@@ -419,6 +426,101 @@ describe("KnowledgeBasePage", () => {
       await waitFor(() => {
         expect(mockFetchCoverage.mock.calls.length).toBeGreaterThan(calls);
       });
+    });
+  });
+
+  describe("a pair's rows", () => {
+    const row = (statusId: string, sortOrder: number, body: string) => ({
+      statusId,
+      statusName: `Status ${String(sortOrder)}`,
+      sortOrder,
+      body,
+      updatedAt: null,
+      updatedBy: null,
+    });
+    const pendingQuery = (id: string, statusId: string, message: string, loanTypeId = "lt-1") => ({
+      id,
+      raisedBy: "u1",
+      bankId: "bank-1",
+      loanTypeId,
+      statusId,
+      bankNameSnapshot: "Bank A",
+      loanTypeNameSnapshot: "Home Loan",
+      statusNameSnapshot: "x",
+      message,
+      status: "pending" as const,
+      raisedAt: "2026-01-01T00:00:00.000Z",
+      resolvedAt: null,
+      resolvedBy: null,
+    });
+
+    async function openPair() {
+      mockFetchBanks.mockResolvedValue([BANK]);
+      mockFetchLoanTypesForBank.mockResolvedValue([LOAN_TYPE]);
+      renderPage();
+      await screen.findByRole("option", { name: "Bank A" });
+      fireEvent.change(screen.getByLabelText("Bank"), { target: { value: "bank-1" } });
+      await screen.findByRole("option", { name: "Home Loan" });
+      fireEvent.change(screen.getByLabelText("Loan type"), { target: { value: "lt-1" } });
+    }
+
+    // With "Show only NA" on, the row index is its place among the NA rows,
+    // not in the lifecycle: the label used to say "Step 1 of 1" for step 3.
+    it("labels each status with its lifecycle step, even when only NA rows are shown", async () => {
+      mockFetchDescriptionGrid.mockResolvedValue({
+        wired: true,
+        rows: [row("st-1", 1, "Done."), row("st-2", 2, "Done."), row("st-3", 3, "NA")],
+      });
+      await openPair();
+      expect(await screen.findByText("Step 3 of 3")).toBeInTheDocument();
+      fireEvent.click(screen.getByLabelText("Show only NA"));
+      expect(screen.getByText("Step 3 of 3")).toBeInTheDocument();
+      expect(screen.queryByText("Step 1 of 1")).not.toBeInTheDocument();
+    });
+
+    it("shows a status's pending queries for this pair only, with their messages on demand", async () => {
+      mockFetchDescriptionGrid.mockResolvedValue({
+        wired: true,
+        rows: [row("st-1", 1, "Old text")],
+      });
+      mockFetchAdminQueries.mockResolvedValue({
+        items: [
+          pendingQuery("q1", "st-1", "The fee has changed."),
+          pendingQuery("q2", "st-1", "Also mention the NOC."),
+          pendingQuery("q3", "st-1", "Another pair's query.", "lt-other"),
+        ],
+        nextCursor: null,
+      });
+      await openPair();
+      const toggle = await screen.findByRole("button", { name: "2 pending queries" });
+      expect(screen.queryByText(/The fee has changed/)).not.toBeInTheDocument();
+      fireEvent.click(toggle);
+      expect(screen.getByText(/The fee has changed/)).toBeInTheDocument();
+      expect(screen.getByText(/Also mention the NOC/)).toBeInTheDocument();
+      expect(screen.queryByText(/Another pair's query/)).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("link", { name: "Approve or reject in the Query inbox" }),
+      ).toBeInTheDocument();
+      expect(mockFetchAdminQueries).toHaveBeenCalledWith({
+        status: "pending",
+        sort: "asc",
+        limit: 50,
+      });
+    });
+
+    it("says 'at least' when there are more pending queries than one page", async () => {
+      mockFetchDescriptionGrid.mockResolvedValue({
+        wired: true,
+        rows: [row("st-1", 1, "Old text")],
+      });
+      mockFetchAdminQueries.mockResolvedValue({
+        items: [pendingQuery("q1", "st-1", "One.")],
+        nextCursor: "more",
+      });
+      await openPair();
+      expect(
+        await screen.findByRole("button", { name: "At least 1 pending query" }),
+      ).toBeInTheDocument();
     });
   });
 });

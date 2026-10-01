@@ -142,7 +142,7 @@ export const EditableCell = forwardRef<HTMLButtonElement, EditableCellProps>(fun
         onKeyDown={handleTriggerKeyDown}
         disabled={disabled}
         title={disabled ? disabledHint : undefined}
-        className={`block w-full rounded-sm px-2 py-1.5 text-left text-body ${
+        className={`group block w-full rounded-sm px-2 py-1.5 text-left text-body ${
           disabled
             ? "cursor-not-allowed text-muted/60"
             : "text-ink hover:bg-ink/5 focus-visible:bg-ink/5"
@@ -151,7 +151,11 @@ export const EditableCell = forwardRef<HTMLButtonElement, EditableCellProps>(fun
         {isNA ? (
           <span className="italic text-muted">NA — click to add a description</span>
         ) : (
-          <span className="whitespace-pre-wrap">{value}</span>
+          // Two lines while reading, so more statuses fit on screen; the full
+          // text shows on keyboard focus and in the editor.
+          <span className="line-clamp-2 whitespace-pre-wrap group-focus-visible:line-clamp-none">
+            {value}
+          </span>
         )}
       </button>
     );
