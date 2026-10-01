@@ -4,9 +4,8 @@ import {
   useInfiniteQuery,
   type InfiniteData,
 } from "@tanstack/react-query";
-import type { AdminListQueriesResponse, AdminQueryRow, QueryStatus } from "@way-to-credit/shared";
+import type { AdminListQueriesResponse, QueryStatus } from "@way-to-credit/shared";
 import { useState } from "react";
-import { Badge, type BadgeTone } from "../../components/Badge";
 import { Button } from "../../components/Button";
 import { EmptyState } from "../../components/EmptyState";
 import { ErrorState } from "../../components/ErrorState";
@@ -15,24 +14,12 @@ import { Spinner } from "../../components/Spinner";
 import { useToast } from "../../components/Toast";
 import { ApiError } from "../../lib/api";
 import { approveQuery, fetchAdminQueries, fetchUsers, rejectQuery } from "../../lib/adminApi";
-import { formatIstDateTime } from "../../lib/format";
-import { useActorNames, type ActorName } from "../../lib/useActorNames";
-import { ActorLabel } from "../../components/ActorLabel";
+import { useActorNames } from "../../lib/useActorNames";
 import { FIELD_BORDER, FIELD_CLASSES } from "../../components/fieldStyles";
 import { istDayRangeUtc } from "../../lib/ist";
+import { QueryInboxRow } from "./QueryInboxRow";
 
 const PAGE_SIZE = 20;
-
-const STATUS_TONE: Record<QueryStatus, BadgeTone> = {
-  pending: "attention",
-  approved: "success",
-  rejected: "negative",
-};
-const STATUS_LABEL: Record<QueryStatus, string> = {
-  pending: "Pending",
-  approved: "Approved",
-  rejected: "Rejected",
-};
 
 export function QueriesPage() {
   const { showToast } = useToast();
@@ -218,7 +205,7 @@ export function QueriesPage() {
       {items.length > 0 && (
         <ul className="flex flex-col divide-y divide-muted/10 rounded-md bg-white shadow-card">
           {items.map((item) => (
-            <QueryRow
+            <QueryInboxRow
               key={item.id}
               item={item}
               raisedBy={nameFor("user", item.raisedBy)}
@@ -242,44 +229,5 @@ export function QueriesPage() {
         </div>
       )}
     </div>
-  );
-}
-
-function QueryRow({
-  item,
-  raisedBy,
-  pending,
-  onApprove,
-  onReject,
-}: {
-  item: AdminQueryRow;
-  raisedBy: ActorName;
-  pending: boolean;
-  onApprove: () => void;
-  onReject: () => void;
-}) {
-  return (
-    <li className="flex flex-col gap-2 px-5 py-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-body font-medium text-ink">
-          {item.bankNameSnapshot} · {item.loanTypeNameSnapshot} · {item.statusNameSnapshot}
-        </p>
-        <Badge tone={STATUS_TONE[item.status]} label={STATUS_LABEL[item.status]} />
-      </div>
-      <p className="text-body text-ink">{item.message}</p>
-      <p className="text-small text-muted">
-        Raised {formatIstDateTime(item.raisedAt)} IST · raised by <ActorLabel actor={raisedBy} />
-      </p>
-      {item.status === "pending" && (
-        <div className="mt-1 flex items-center gap-2">
-          <Button variant="primary" loading={pending} disabled={pending} onClick={onApprove}>
-            Approve (+1 credit)
-          </Button>
-          <Button variant="danger" loading={pending} disabled={pending} onClick={onReject}>
-            Reject
-          </Button>
-        </div>
-      )}
-    </li>
   );
 }

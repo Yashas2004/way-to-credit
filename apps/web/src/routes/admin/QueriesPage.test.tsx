@@ -215,8 +215,8 @@ describe("QueriesPage", () => {
     await waitFor(() => {
       const rows = screen.getAllByRole("listitem");
       expect(rows).toHaveLength(2);
-      expect(rows[0]).toHaveTextContent("raised by Ramesh Kumar · user1");
-      expect(rows[1]).toHaveTextContent("raised by Priya Nair (archived) · user2");
+      expect(rows[0]).toHaveTextContent("Ramesh Kumar · user1");
+      expect(rows[1]).toHaveTextContent("Priya Nair (archived) · user2");
     });
     expect(document.body).not.toHaveTextContent("01a0f18c");
   });
