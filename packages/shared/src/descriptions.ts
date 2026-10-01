@@ -41,3 +41,34 @@ export const DescriptionGridResponseSchema = z.object({
   rows: z.array(DescriptionGridRowSchema),
 });
 export type DescriptionGridResponse = z.infer<typeof DescriptionGridResponseSchema>;
+
+/**
+ * Where descriptions are missing: attached bank-loan-type pairs ranked by
+ * how many live statuses still have no description ("NA" or no row), most
+ * missing first. Optionally one bank's pairs only.
+ */
+export const DescriptionCoverageQuerySchema = z.object({
+  bankId: z.string().uuid().optional(),
+  limit: z.coerce.number().int().min(1).max(50).optional().default(10),
+});
+export type DescriptionCoverageQuery = z.infer<typeof DescriptionCoverageQuerySchema>;
+
+export const DescriptionCoveragePairSchema = z.object({
+  bankId: z.string().uuid(),
+  bankName: z.string(),
+  loanTypeId: z.string().uuid(),
+  loanTypeName: z.string(),
+  filled: z.number().int(),
+  missing: z.number().int(),
+});
+export type DescriptionCoveragePair = z.infer<typeof DescriptionCoveragePairSchema>;
+
+export const DescriptionCoverageResponseSchema = z.object({
+  /** Live statuses: every attached pair needs one description per status. */
+  totalStatuses: z.number().int(),
+  /** Across every matching pair, not just the ones returned. */
+  pairCount: z.number().int(),
+  missingTotal: z.number().int(),
+  pairs: z.array(DescriptionCoveragePairSchema),
+});
+export type DescriptionCoverageResponse = z.infer<typeof DescriptionCoverageResponseSchema>;

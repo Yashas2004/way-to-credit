@@ -1,3 +1,4 @@
+import type { DescriptionCoverageQuery, DescriptionCoverageResponse } from "@way-to-credit/shared";
 import { db } from "../../db/client.js";
 import { descriptions } from "../../db/schema/index.js";
 import { recordAudit } from "../../lib/audit.js";
@@ -128,6 +129,38 @@ export async function getDescriptionGrid(
       body: row.body ?? "NA",
       updatedAt: row.updatedAt ? row.updatedAt.toISOString() : null,
       updatedBy: row.updatedBy ?? null,
+    })),
+  };
+}
+
+/**
+ * Where descriptions are missing, worst pair first (see the repo query).
+ * Missing = live statuses minus real descriptions: "NA" and no row both count.
+ */
+export async function getDescriptionCoverage(
+  query: DescriptionCoverageQuery,
+): Promise<DescriptionCoverageResponse> {
+  const rows = await descriptionsRepo.listDescriptionCoverage(
+    db,
+    query.bankId ? { bankId: query.bankId } : {},
+    query.limit,
+  );
+  const first = rows[0];
+  if (!first) {
+    return { totalStatuses: 0, pairCount: 0, missingTotal: 0, pairs: [] };
+  }
+  const totalStatuses = first.totalStatuses;
+  return {
+    totalStatuses,
+    pairCount: first.pairCount,
+    missingTotal: first.pairCount * totalStatuses - first.filledTotal,
+    pairs: rows.map((r) => ({
+      bankId: r.bankId,
+      bankName: r.bankName,
+      loanTypeId: r.loanTypeId,
+      loanTypeName: r.loanTypeName,
+      filled: r.filled,
+      missing: totalStatuses - r.filled,
     })),
   };
 }

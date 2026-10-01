@@ -1,5 +1,5 @@
-import { and, eq, sql, type SQL } from "drizzle-orm";
-import { bankLoanTypes, descriptions, statuses } from "../../db/schema/index.js";
+import { and, asc, eq, isNull, sql, type SQL } from "drizzle-orm";
+import { bankLoanTypes, banks, descriptions, loanTypes, statuses } from "../../db/schema/index.js";
 import type { DbOrTx } from "../../db/types.js";
 
 async function countWhere(db: DbOrTx, condition: SQL | undefined): Promise<number> {
@@ -129,4 +129,66 @@ export async function listDescriptionGridForPair(db: DbOrTx, bankId: string, loa
     )
     .where(sql`${statuses.deletedAt} IS NULL`)
     .orderBy(statuses.sortOrder);
+}
+
+export interface DescriptionCoverageRow {
+  bankId: string;
+  bankName: string;
+  loanTypeId: string;
+  loanTypeName: string;
+  filled: number;
+  totalStatuses: number;
+  pairCount: number;
+  filledTotal: number;
+}
+
+/**
+ * Attached pairs of a live bank and live loan type, each with how many live
+ * statuses have a real description (not "NA"), fewest first: the pairs with
+ * the most missing. One statement: the live-status count is a scalar
+ * subquery, and the totals across every matching pair (not just the page)
+ * come from window functions over the grouped rows.
+ */
+export async function listDescriptionCoverage(
+  db: DbOrTx,
+  filter: { bankId?: string },
+  limit: number,
+): Promise<DescriptionCoverageRow[]> {
+  const filled = sql<number>`count(${statuses.id}) filter (where ${descriptions.body} <> 'NA')`;
+  return (
+    db
+      .select({
+        bankId: bankLoanTypes.bankId,
+        bankName: banks.name,
+        loanTypeId: bankLoanTypes.loanTypeId,
+        loanTypeName: loanTypes.name,
+        filled: filled.mapWith(Number),
+        totalStatuses:
+          sql<number>`(select count(*) from ${statuses} where ${statuses.deletedAt} is null)`.mapWith(
+            Number,
+          ),
+        pairCount: sql<number>`count(*) over ()`.mapWith(Number),
+        filledTotal: sql<number>`sum(${filled}) over ()`.mapWith(Number),
+      })
+      .from(bankLoanTypes)
+      .innerJoin(banks, and(eq(banks.id, bankLoanTypes.bankId), isNull(banks.deletedAt)))
+      .innerJoin(
+        loanTypes,
+        and(eq(loanTypes.id, bankLoanTypes.loanTypeId), isNull(loanTypes.deletedAt)),
+      )
+      .leftJoin(
+        descriptions,
+        and(
+          eq(descriptions.bankId, bankLoanTypes.bankId),
+          eq(descriptions.loanTypeId, bankLoanTypes.loanTypeId),
+        ),
+      )
+      // A description for a withdrawn status doesn't count: the status no
+      // longer needs one.
+      .leftJoin(statuses, and(eq(statuses.id, descriptions.statusId), isNull(statuses.deletedAt)))
+      .where(filter.bankId ? eq(bankLoanTypes.bankId, filter.bankId) : undefined)
+      .groupBy(bankLoanTypes.bankId, banks.name, bankLoanTypes.loanTypeId, loanTypes.name)
+      .orderBy(asc(filled), asc(banks.name), asc(loanTypes.name))
+      .limit(limit)
+  );
 }

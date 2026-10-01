@@ -1,4 +1,8 @@
-import { DescriptionGridQuerySchema, UpsertDescriptionRequestSchema } from "@way-to-credit/shared";
+import {
+  DescriptionCoverageQuerySchema,
+  DescriptionGridQuerySchema,
+  UpsertDescriptionRequestSchema,
+} from "@way-to-credit/shared";
 import { Router } from "express";
 import { requireActorId } from "../../lib/authContext.js";
 import { ValidationError } from "../../lib/errors.js";
@@ -37,6 +41,19 @@ descriptionsRouter.get("/", async (req, res, next) => {
       parsed.data.loanTypeId,
     );
     res.status(200).json(grid);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Where descriptions are missing: pairs ranked by missing descriptions.
+descriptionsRouter.get("/coverage", async (req, res, next) => {
+  try {
+    const parsed = DescriptionCoverageQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      throw new ValidationError("limit must be 1-50, and bankId (if given) a valid id.");
+    }
+    res.status(200).json(await descriptionsService.getDescriptionCoverage(parsed.data));
   } catch (error) {
     next(error);
   }
