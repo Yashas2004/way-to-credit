@@ -1,4 +1,12 @@
 import { defineConfig } from "vitest/config";
+import { assertIsolated, testEnvironment } from "./src/testEnvironment.js";
+
+// Tests get their own database and Redis index (src/testEnvironment.ts),
+// created and torn down by src/testGlobalSetup.ts. Setting them here, before
+// any worker imports config/env.ts, means .env's dev values are never used:
+// dotenv doesn't override variables that are already set.
+const isolated = testEnvironment();
+assertIsolated(isolated);
 
 export default defineConfig({
   test: {
@@ -14,6 +22,11 @@ export default defineConfig({
     // test) on a loaded CI runner — a test that fails only sometimes gets
     // ignored rather than investigated.
     testTimeout: 15_000,
+    env: {
+      NODE_ENV: "test",
+      DATABASE_URL: isolated.databaseUrl,
+      REDIS_URL: isolated.redisUrl,
+    },
     globalSetup: ["./src/testGlobalSetup.ts"],
     setupFiles: ["./src/testSetup.ts"],
   },

@@ -453,10 +453,23 @@ NOBYPASSRLS`.
   - double-approval of a query awards exactly one credit
   - a user cannot reach any admin route
   - cache invalidation after an admin write
-- Tests run against a real Postgres from `docker-compose`, not mocks. Reset with a
-  transaction rollback or truncation between tests.
-- **A test must create every piece of state it depends on.** Test files share one database and
-  one Redis, and run in whatever order Vitest picks, so a test can pass only because
+- Tests run against a real Postgres and Redis from `docker-compose`, not mocks, but **never
+  the dev data**. Each run gets its own database, the dev database's name plus `_test`
+  (`way_to_credit_test`), and its own Redis index (15, or 14 if dev uses 15).
+  - `src/testGlobalSetup.ts` drops and recreates the database, applies the real migrations
+    (never seeds) and flushes the index. Afterwards it drops the database and flushes the
+    index again.
+  - `vitest.config.ts` points every worker at them before `config/env.ts` loads.
+  - `assertIsolated()` refuses to run unless the database name ends in `_test` and the
+    Redis index isn't the dev one.
+
+  So a running `pnpm dev` can't disturb a test run, and a test run can't write into the dev
+  database. Before this, ten help-request tests once failed together while the dev API was
+  up, and test runs had left thousands of append-only audit and activity rows in the dev
+  database. Reset state between tests with a transaction rollback or truncation.
+
+- **A test must create every piece of state it depends on.** Test files share the test
+  database and Redis index, and run in whatever order Vitest picks, so a test can pass only because
   another file happened to run first, or because the local dev DB is seeded (CI migrates but
   never seeds). Then it isn't testing what it claims, and it breaks when order or data
   changes. This has happened twice:
@@ -464,13 +477,16 @@ NOBYPASSRLS`.
   - The cache "write then read" test relied on another file having created the cache version key (then `tree:version`, now `nav:version`).
     That hid a real invalidation bug until the file was run on its own.
 
-  In review, run a new or changed test file **on its own against an unseeded database**
-  (`pnpm --filter api exec vitest run <file>`; for an unseeded database like CI's, run
-  `docker compose down -v`, then `pnpm db:migrate` without seeding, which wipes local
-  data). If a test needs a precondition such as "this
+  In review, run a new or changed test file **on its own**
+  (`pnpm --filter api exec vitest run <file>`). Every run already starts from a freshly
+  migrated, unseeded database, like CI's. If a test needs a precondition such as "this
   key is absent" or "no statuses exist", set it explicitly in the test: delete the key, or
   soft-delete inside a rolled-back transaction. Never inherit it.
 
+- **When a test fails unexpectedly, save its full error output before running anything
+  again.** Write the whole run to a file (`pnpm test 2>&1 > run.log`), not a filtered
+  summary. A re-run that passes destroys the only evidence. The ten help-request failures
+  were never diagnosed because only their names were kept.
 - **A test that failed once is a bug until proven otherwise.** To reproduce a rare
   failure:
   1. Add `{ repeats: 200 }` to that one test.
