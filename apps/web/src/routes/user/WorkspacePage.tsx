@@ -7,6 +7,7 @@ import { Combobox } from "../../components/Combobox";
 import { EmptyState } from "../../components/EmptyState";
 import { ErrorState } from "../../components/ErrorState";
 import { CreditProgress } from "../../components/CreditProgress";
+import { LifecycleRail } from "../../components/LifecycleRail";
 import { RecentLookups } from "../../components/RecentLookups";
 import { YourQueries } from "../../components/YourQueries";
 import { SequenceDots } from "../../components/SequenceDots";
@@ -359,6 +360,15 @@ export function WorkspacePage() {
               ))}
           </Card>
           <div className="flex flex-col gap-8">
+            {shownStatus && (
+              <LifecycleRail
+                steps={statuses}
+                current={shownStatusIndex}
+                bankId={submitted.bankId}
+                loanTypeId={submitted.loanTypeId}
+                ready={descriptionQuery.isSuccess}
+              />
+            )}
             <RecentLookups items={recentItems} />
             <CreditProgress />
           </div>
@@ -410,6 +420,7 @@ function plural(count: number, one: string, many = `${one}s`): string {
   return `${String(count)} ${count === 1 ? one : many}`;
 }
 
-/** Main column and a rail, from `lg` up. */
+/** Main column and a rail, from `lg` up. Top-aligned: the result card keeps
+    its own height instead of stretching to the rail's. */
 const RESULT_GRID =
-  "grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-12 xl:grid-cols-[minmax(0,1fr)_20rem]";
+  "grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-12 xl:grid-cols-[minmax(0,1fr)_20rem]";

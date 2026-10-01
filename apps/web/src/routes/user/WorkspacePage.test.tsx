@@ -81,13 +81,28 @@ async function chooseAll(status = "login") {
   pick("Status", status);
 }
 
+// Each status has its own text, so a neighbour's preview in the lifecycle
+// rail never duplicates the main result's text.
+const BODIES: Record<string, string> = {
+  "st-login": "Loan fully repaid and account closed.",
+  "st-sanctioned": "Sanctioned text.",
+  "0190a000-0000-7000-8000-0000000000c1": "Login stage text.",
+  "0190a000-0000-7000-8000-0000000000c2": "Loan fully repaid and account closed.",
+};
+
+/** Lookups of one status: the lifecycle rail also previews the neighbours. */
+const callsFor = (statusId: string) =>
+  mockFetchDescription.mock.calls.filter((c) => c[2] === statusId).length;
+
 describe("WorkspacePage", () => {
   beforeEach(() => {
     window.localStorage.clear();
     mockFetchNav.mockReset();
     mockFetchDescription.mockReset();
     mockFetchNav.mockResolvedValue(NAV);
-    mockFetchDescription.mockResolvedValue({ body: "Loan fully repaid and account closed." });
+    mockFetchDescription.mockImplementation((_bank, _loanType, statusId) =>
+      Promise.resolve({ body: BODIES[statusId] ?? "Another step." }),
+    );
   });
 
   it("loads nothing until asked: choosing all three fetches no description", async () => {
@@ -107,9 +122,27 @@ describe("WorkspacePage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Show description" }));
 
     expect(await screen.findByText("Loan fully repaid and account closed.")).toBeInTheDocument();
-    expect(mockFetchDescription).toHaveBeenCalledTimes(1);
+    expect(callsFor("st-login")).toBe(1);
     expect(mockFetchDescription).toHaveBeenCalledWith("bank-a", "lt-home", "st-login");
     expect(screen.getByText("Bank A · HDFC Home Loan")).toBeInTheDocument();
+  });
+
+  // The lifecycle rail previews the neighbouring steps, but never at the
+  // result's expense: here the neighbour lookups never answer at all.
+  it("shows the result even if the neighbouring steps' previews never load", async () => {
+    mockFetchDescription.mockImplementation((_bank, _loanType, statusId) =>
+      statusId === "st-login"
+        ? Promise.resolve({ body: "Loan fully repaid and account closed." })
+        : new Promise(() => undefined),
+    );
+    renderWorkspace();
+    await chooseAll();
+    fireEvent.click(screen.getByRole("button", { name: "Show description" }));
+    expect(await screen.findByText("Loan fully repaid and account closed.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "In this lifecycle" })).toBeInTheDocument();
+    // The neighbour was asked for, and is still outstanding.
+    expect(callsFor("st-sanctioned")).toBe(1);
+    expect(screen.queryByTestId("step-preview")).toBeNull();
   });
 
   it("submitting the form (what Enter does) shows the description too", async () => {
@@ -126,6 +159,7 @@ describe("WorkspacePage", () => {
     await chooseAll();
     fireEvent.click(screen.getByRole("button", { name: "Show description" }));
     await screen.findByText("Loan fully repaid and account closed.");
+    const before = mockFetchDescription.mock.calls.length;
 
     pick("Status", "sanction");
     expect(
@@ -134,12 +168,12 @@ describe("WorkspacePage", () => {
     // The previous result stays visible, labelled as the previous one; no new request.
     expect(screen.getByText("Loan fully repaid and account closed.")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Login" })).toBeInTheDocument();
-    expect(mockFetchDescription).toHaveBeenCalledTimes(1);
+    expect(mockFetchDescription.mock.calls.length).toBe(before); // changing the selection fetched nothing
 
-    mockFetchDescription.mockResolvedValue({ body: "Sanctioned text." });
     fireEvent.click(screen.getByRole("button", { name: "Show description" }));
-    expect(await screen.findByText("Sanctioned text.")).toBeInTheDocument();
-    expect(mockFetchDescription).toHaveBeenLastCalledWith("bank-a", "lt-home", "st-sanctioned");
+    expect(await screen.findByRole("heading", { name: "Sanctioned" })).toBeInTheDocument();
+    expect(screen.getByText("Sanctioned text.")).toBeInTheDocument();
+    expect(mockFetchDescription).toHaveBeenCalledWith("bank-a", "lt-home", "st-sanctioned");
     expect(screen.queryByText(/Selection changed/)).not.toBeInTheDocument();
   });
 
@@ -240,22 +274,22 @@ describe("WorkspacePage", () => {
     it("opening a link to a combination shows its description exactly once, with the fields filled", async () => {
       renderWorkspace(undefined, link(B, LT, ST2));
       expect(await screen.findByText("Loan fully repaid and account closed.")).toBeInTheDocument();
-      expect(mockFetchDescription).toHaveBeenCalledTimes(1);
-      expect(mockFetchDescription).toHaveBeenCalledWith(B, LT, ST2);
+      expect(callsFor(ST2)).toBe(1);
       expect(box("Bank")).toHaveValue("HDFC Bank");
       // The field names the status; the position is the result's to show.
       expect(box("Status")).toHaveValue("Sanctioned");
       expect(screen.getByText("Step 2 of 2 in the loan lifecycle")).toBeInTheDocument();
       await new Promise((r) => setTimeout(r, 50));
-      expect(mockFetchDescription).toHaveBeenCalledTimes(1);
+      expect(callsFor(ST2)).toBe(1);
     });
 
     it("editing after opening a link marks the result stale and fetches nothing", async () => {
       renderWorkspace(undefined, link(B, LT, ST2));
       await screen.findByText("Loan fully repaid and account closed.");
+      const before = mockFetchDescription.mock.calls.length;
       pick("Status", "login");
       expect(screen.getByText(/Selection changed/)).toBeInTheDocument();
-      expect(mockFetchDescription).toHaveBeenCalledTimes(1);
+      expect(mockFetchDescription.mock.calls.length).toBe(before);
     });
 
     it.each([
@@ -279,7 +313,7 @@ describe("WorkspacePage", () => {
       pick("Loan type", "home");
       pick("Status", "login");
       fireEvent.click(screen.getByRole("button", { name: "Show description" }));
-      await screen.findByText("Loan fully repaid and account closed.");
+      await screen.findByText("Login stage text.");
 
       await waitFor(() => {
         expect(window.localStorage.getItem(storageKey)).not.toBeNull();
@@ -312,7 +346,7 @@ describe("WorkspacePage", () => {
       renderWorkspace();
       const recent = await screen.findByRole("heading", { name: "Recent lookups" });
       fireEvent.click(within(sectionOf(recent)).getByRole("link"));
-      expect(await screen.findByText("Loan fully repaid and account closed.")).toBeInTheDocument();
+      expect(await screen.findByText("Login stage text.")).toBeInTheDocument();
       expect(mockFetchDescription).toHaveBeenCalledWith(B, LT, ST1);
     });
 
